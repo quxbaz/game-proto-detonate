@@ -177,6 +177,19 @@ function sfx(type, opts = {}) {
       o.connect(gn); gn.connect(audioCtx.destination); o.start(now + t); o.stop(now + t + 0.12);
     });
   }
+  if (type === 'timestop') {
+    // Descending sweep — time freeze effect
+    const osc = audioCtx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+    g.gain.setValueAtTime(0.15, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(g); osc.start(now); osc.stop(now + 0.6);
+    const osc2 = audioCtx.createOscillator(); const g2 = audioCtx.createGain();
+    osc2.type = 'triangle'; osc2.frequency.setValueAtTime(600, now);
+    osc2.frequency.exponentialRampToValueAtTime(40, now + 0.4);
+    g2.gain.setValueAtTime(0.1, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc2.connect(g2); g2.connect(audioCtx.destination); osc2.start(now); osc2.stop(now + 0.5);
+  }
 }
 
 // ============ 3D MESH MANAGEMENT ============
@@ -220,12 +233,17 @@ const MAX_BULLETS = 1500;
 const MAX_PARTICLES = 3000;
 
 const POWERUP_DEFS = {
-  spread:    { label: 'SPREAD',    color: '#4ff', dur: 8 },
-  rapid:     { label: 'RAPID',     color: '#f4f', dur: 7 },
+  spread:    { label: 'SPREAD',    color: '#4ff', dur: 12 },
+  rapid:     { label: 'RAPID',     color: '#f4f', dur: 10 },
   megablast: { label: 'MEGA',      color: '#ff4', dur: 0 },
   heal:      { label: '+HP',       color: '#4f4', dur: 0 },
-  magnet:    { label: 'MAGNET',    color: '#88f', dur: 10 },
-  shield:    { label: 'SHIELD',    color: '#ff8', dur: 5 },
+  magnet:    { label: 'MAGNET',    color: '#88f', dur: 14 },
+  shield:    { label: 'SHIELD',    color: '#ff8', dur: 8 },
+  ricochet:  { label: 'RICOCHET',  color: '#f84', dur: 10 },
+  homing:    { label: 'HOMING',    color: '#8ff', dur: 8 },
+  overcharge:{ label: 'OVERCHARGE',color: '#fa0', dur: 10 },
+  vampiric:  { label: 'VAMPIRIC',  color: '#f44', dur: 12 },
+  timestop:  { label: 'TIMESTOP',  color: '#aaf', dur: 5 },
 };
 
 function init() {
@@ -240,6 +258,7 @@ function init() {
   player = {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: false, magnet: 0, shield: 0,
+    ricochet: 0, homing: 0, overcharge: 0, vampiric: 0, timestop: 0,
     dashCooldown: 0, dashTimer: 0, dashVx: 0, dashVy: 0,
     detonationBonus: 1, angle: 0
   };
@@ -327,6 +346,11 @@ function applyPowerup(type) {
     case 'heal': player.hp = Math.min(player.hp + 2, player.maxHp); break;
     case 'magnet': player.magnet = def.dur; break;
     case 'shield': player.shield = def.dur; break;
+    case 'ricochet': player.ricochet = def.dur; break;
+    case 'homing': player.homing = def.dur; break;
+    case 'overcharge': player.overcharge = def.dur; break;
+    case 'vampiric': player.vampiric = def.dur; break;
+    case 'timestop': player.timestop = def.dur; sfx('timestop'); break;
   }
 }
 
@@ -421,6 +445,11 @@ function update(dt) {
   if (player.rapid > 0) player.rapid -= dt;
   if (player.magnet > 0) player.magnet -= dt;
   if (player.shield > 0) player.shield -= dt;
+  if (player.ricochet > 0) player.ricochet -= dt;
+  if (player.homing > 0) player.homing -= dt;
+  if (player.overcharge > 0) player.overcharge -= dt;
+  if (player.vampiric > 0) player.vampiric -= dt;
+  if (player.timestop > 0) player.timestop -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
@@ -469,6 +498,26 @@ function update(dt) {
   // Bullets
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
+    // Homing: gently steer toward nearest enemy
+    if (player.homing > 0 && !b.shrapnel) {
+      let closestDist = 200, closest = null;
+      for (let e of enemies) {
+        const d = dist(b, e);
+        if (d < closestDist) { closestDist = d; closest = e; }
+      }
+      if (closest) {
+        const desired = Math.atan2(closest.y - b.y, closest.x - b.x);
+        const current = Math.atan2(b.vy, b.vx);
+        let diff = desired - current;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const turn = Math.min(Math.abs(diff), 3.5 * dt) * Math.sign(diff);
+        const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+        const newAngle = current + turn;
+        b.vx = Math.cos(newAngle) * spd;
+        b.vy = Math.sin(newAngle) * spd;
+      }
+    }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     // Out of arena
@@ -478,10 +527,30 @@ function update(dt) {
     for (let e of enemies) {
       if (circlesOverlap(b, b.r, e, e.r)) {
         e.stuck.push({ ox: b.x - e.x, oy: b.y - e.y, pulseT: 0 });
-        bullets.splice(i, 1);
         spawnParticles(b.x, b.y, 3, '#ff0', 0.2);
         sfx('stick');
-        hit = true;
+        // Ricochet: bullet bounces to a nearby enemy
+        if (player.ricochet > 0 && !b.ricocheted) {
+          let nextEnemy = null, nd = 250;
+          for (let other of enemies) {
+            if (other === e) continue;
+            const d2 = dist(b, other);
+            if (d2 < nd) { nd = d2; nextEnemy = other; }
+          }
+          if (nextEnemy) {
+            const ang = Math.atan2(nextEnemy.y - b.y, nextEnemy.x - b.x);
+            const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            b.vx = Math.cos(ang) * spd;
+            b.vy = Math.sin(ang) * spd;
+            b.ricocheted = true;
+            spawnParticles(b.x, b.y, 5, '#f84', 0.3);
+            hit = false; // don't remove bullet
+          } else {
+            bullets.splice(i, 1); hit = true;
+          }
+        } else {
+          bullets.splice(i, 1); hit = true;
+        }
         break;
       }
     }
@@ -537,17 +606,18 @@ function update(dt) {
     // Move toward player with slight wobble
     const toPlayerX = player.x - e.x, toPlayerY = player.y - e.y;
     const tpDist = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY);
+    const timeFactor = player.timestop > 0 ? 0.15 : 1;
     if (tpDist > 1) {
-      e.wobble += dt * 2;
+      e.wobble += dt * 2 * timeFactor;
       const wobbleAngle = Math.atan2(toPlayerY, toPlayerX) + Math.sin(e.wobble) * 0.3;
-      e.x += Math.cos(wobbleAngle) * e.speed * dt;
-      e.y += Math.sin(wobbleAngle) * e.speed * dt;
+      e.x += Math.cos(wobbleAngle) * e.speed * dt * timeFactor;
+      e.y += Math.sin(wobbleAngle) * e.speed * dt * timeFactor;
     }
     for (let s of e.stuck) s.pulseT += dt;
 
     // Enemy shooting
     if (e.type === 'shooter' || e.type === 'boss') {
-      e.shootTimer -= dt;
+      e.shootTimer -= dt * timeFactor;
       if (e.shootTimer <= 0 && tpDist < ARENA_R) {
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
         const bspd = e.type === 'boss' ? 180 : 140;
@@ -613,6 +683,16 @@ function update(dt) {
       }
       sfx('enemyDie');
 
+      // Vampiric heal
+      if (player.vampiric > 0 && player.hp < player.maxHp) {
+        const healChance = e.type === 'boss' ? 1.0 : 0.3;
+        if (Math.random() < healChance) {
+          player.hp = Math.min(player.hp + 1, player.maxHp);
+          spawnFloatingText(player.x, player.y + 25, '+1 HP', '#f44', 14);
+          spawnParticles(player.x, player.y, 6, '#f44', 0.3);
+        }
+      }
+
       // Shrapnel
       if (e.explodedBy) {
         const stuckCount = e.stuckBeforeDetonation || (e.stuck ? e.stuck.length : 0);
@@ -631,11 +711,11 @@ function update(dt) {
         const types = Object.keys(POWERUP_DEFS);
         const ptype = types[Math.floor(Math.random() * types.length)];
         const def = POWERUP_DEFS[ptype];
-        powerups.push({ x: e.x, y: e.y, r: 10, type: ptype, color: def.color, label: def.label, life: 8, bobT: 0 });
+        powerups.push({ x: e.x, y: e.y, r: 10, type: ptype, color: def.color, label: def.label, life: 15, bobT: 0 });
         if (e.type === 'boss') {
           const ptype2 = types[Math.floor(Math.random() * types.length)];
           const def2 = POWERUP_DEFS[ptype2];
-          powerups.push({ x: e.x + 20, y: e.y + 15, r: 10, type: ptype2, color: def2.color, label: def2.label, life: 8, bobT: 0 });
+          powerups.push({ x: e.x + 20, y: e.y + 15, r: 10, type: ptype2, color: def2.color, label: def2.label, life: 15, bobT: 0 });
         }
       }
       enemies.splice(i, 1);
@@ -648,7 +728,15 @@ function update(dt) {
     p.bobT += dt;
     p.life -= dt;
     if (p.life <= 0) { powerups.splice(i, 1); continue; }
-    if (circlesOverlap(player, player.r, p, p.r)) {
+    // Drift toward player
+    const pdx = player.x - p.x, pdy = player.y - p.y;
+    const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+    if (pdist > 1) {
+      const driftSpeed = pdist < 120 ? 100 : 30; // faster when close
+      p.x += (pdx / pdist) * driftSpeed * dt;
+      p.y += (pdy / pdist) * driftSpeed * dt;
+    }
+    if (circlesOverlap(player, player.r + 5, p, p.r)) {
       applyPowerup(p.type);
       spawnParticles(p.x, p.y, 8, p.color, 0.4);
       sfx('powerup');
@@ -731,7 +819,8 @@ function chainExplode(initialEnemies, delay, depth, stuckBonus) {
   let nextWave = [];
   const megaMult = player.megablast ? 2 : 1;
   stuckBonus = stuckBonus || 1;
-  const blastRadius = 80 * megaMult * (1 + (stuckBonus - 1) * 0.15);
+  const overMult = player.overcharge > 0 ? 1.8 : 1;
+  const blastRadius = 80 * megaMult * overMult * (1 + (stuckBonus - 1) * 0.15);
 
   for (let e of initialEnemies) {
     if (e.stuck.length === 0) continue;
@@ -741,7 +830,7 @@ function chainExplode(initialEnemies, delay, depth, stuckBonus) {
     setTimeout(() => {
       e.hp -= dmg;
       e.explodedBy = true;
-      const r = (30 + count * 10) * megaMult;
+      const r = (30 + count * 10) * megaMult * overMult;
       explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2 });
       shakeTimer = 0.2 + count * 0.05 * megaMult;
       shakeIntensity = (4 + count * 2) * megaMult;
@@ -960,16 +1049,54 @@ function draw3D(now) {
 
   // Powerups
   for (let p of powerups) {
-    const fade = p.life < 2 ? 0.3 + 0.7 * (p.life / 2) : 1;
-    const blink = p.life < 2 && Math.floor(p.life * 6) % 2 === 0;
+    const fade = p.life < 3 ? 0.3 + 0.7 * (p.life / 3) : 1;
+    const blink = p.life < 3 && Math.floor(p.life * 6) % 2 === 0;
     const mesh = getOrCreateMesh(p, () => {
-      return new THREE.Mesh(new THREE.OctahedronGeometry(8, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true }));
+      const group = new THREE.Group();
+      // Core octahedron
+      const core = new THREE.Mesh(
+        new THREE.OctahedronGeometry(8, 0),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true })
+      );
+      core.name = 'pcore';
+      group.add(core);
+      // Pulsing ring
+      const ringGeo = new THREE.RingGeometry(14, 17, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.name = 'pring';
+      group.add(ring);
+      // Outer glow ring
+      const glowGeo = new THREE.RingGeometry(18, 24, 24);
+      const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      glow.name = 'pglow';
+      group.add(glow);
+      return group;
     });
     mesh.visible = !blink;
-    mesh.position.set(p.x, p.y, 5 + Math.sin(p.bobT * 4) * 4);
-    mesh.rotation.z = now * 0.003;
-    mesh.rotation.y = now * 0.002;
-    mesh.material.opacity = fade;
+    const bobZ = 5 + Math.sin(p.bobT * 4) * 4;
+    mesh.position.set(p.x, p.y, bobZ);
+    const pcore = mesh.getObjectByName('pcore');
+    if (pcore) {
+      pcore.rotation.z = now * 0.003;
+      pcore.rotation.y = now * 0.002;
+      pcore.material.opacity = fade;
+    }
+    const pring = mesh.getObjectByName('pring');
+    if (pring) {
+      const pulse = 0.8 + 0.4 * Math.sin(now * 0.006);
+      pring.scale.setScalar(pulse);
+      pring.material.opacity = fade * 0.6 * pulse;
+      pring.rotation.z = -now * 0.002;
+    }
+    const pglow = mesh.getObjectByName('pglow');
+    if (pglow) {
+      const pulse2 = 0.7 + 0.5 * Math.sin(now * 0.004 + 1);
+      pglow.scale.setScalar(pulse2);
+      pglow.material.opacity = fade * 0.2 * pulse2;
+      pglow.rotation.z = now * 0.001;
+    }
   }
 
   // Particles
@@ -999,6 +1126,13 @@ function draw3D(now) {
 // ============ HUD ============
 function drawHUD(now) {
   ctx.clearRect(0, 0, W, H);
+
+  // Timestop overlay
+  if (player.timestop > 0) {
+    const tsAlpha = Math.min(player.timestop / 1, 0.12);
+    ctx.fillStyle = `rgba(150,150,255,${tsAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // Floating texts (convert world to screen)
   for (let ft of floatingTexts) {
@@ -1058,10 +1192,15 @@ function drawHUD(now) {
   // Active powerups
   let hudY = 54;
   const activePowers = [];
-  if (player.spread > 0) activePowers.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 8 });
-  if (player.rapid > 0) activePowers.push({ label: 'RAPID', color: '#f4f', t: player.rapid, max: 7 });
-  if (player.magnet > 0) activePowers.push({ label: 'MAGNET', color: '#88f', t: player.magnet, max: 10 });
-  if (player.shield > 0) activePowers.push({ label: 'SHIELD', color: '#ff8', t: player.shield, max: 5 });
+  if (player.spread > 0) activePowers.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
+  if (player.rapid > 0) activePowers.push({ label: 'RAPID', color: '#f4f', t: player.rapid, max: 10 });
+  if (player.magnet > 0) activePowers.push({ label: 'MAGNET', color: '#88f', t: player.magnet, max: 14 });
+  if (player.shield > 0) activePowers.push({ label: 'SHIELD', color: '#ff8', t: player.shield, max: 8 });
+  if (player.ricochet > 0) activePowers.push({ label: 'RICOCHET', color: '#f84', t: player.ricochet, max: 10 });
+  if (player.homing > 0) activePowers.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
+  if (player.overcharge > 0) activePowers.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
+  if (player.vampiric > 0) activePowers.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
+  if (player.timestop > 0) activePowers.push({ label: 'TIMESTOP', color: '#aaf', t: player.timestop, max: 5 });
   if (player.megablast) activePowers.push({ label: 'MEGA!', color: '#ff4', t: 1, max: 1 });
   for (let ap of activePowers) {
     ctx.fillStyle = ap.color; ctx.font = 'bold 11px monospace';
