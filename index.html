@@ -177,19 +177,6 @@ function sfx(type, opts = {}) {
       o.connect(gn); gn.connect(audioCtx.destination); o.start(now + t); o.stop(now + t + 0.12);
     });
   }
-  if (type === 'timestop') {
-    // Descending sweep — time freeze effect
-    const osc = audioCtx.createOscillator(); osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, now);
-    osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-    g.gain.setValueAtTime(0.15, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-    osc.connect(g); osc.start(now); osc.stop(now + 0.6);
-    const osc2 = audioCtx.createOscillator(); const g2 = audioCtx.createGain();
-    osc2.type = 'triangle'; osc2.frequency.setValueAtTime(600, now);
-    osc2.frequency.exponentialRampToValueAtTime(40, now + 0.4);
-    g2.gain.setValueAtTime(0.1, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-    osc2.connect(g2); g2.connect(audioCtx.destination); osc2.start(now); osc2.stop(now + 0.5);
-  }
 }
 
 // ============ 3D MESH MANAGEMENT ============
@@ -243,7 +230,6 @@ const POWERUP_DEFS = {
   homing:    { label: 'HOMING',    color: '#8ff', dur: 8 },
   overcharge:{ label: 'OVERCHARGE',color: '#fa0', dur: 10 },
   vampiric:  { label: 'VAMPIRIC',  color: '#f44', dur: 12 },
-  timestop:  { label: 'TIMESTOP',  color: '#aaf', dur: 5 },
 };
 
 function init() {
@@ -258,7 +244,7 @@ function init() {
   player = {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, magnet: 0, shield: 0,
-    ricochet: 0, homing: 0, overcharge: 0, vampiric: 0, timestop: 0,
+    ricochet: 0, homing: 0, overcharge: 0, vampiric: 0,
     dashCooldown: 0, dashTimer: 0, dashVx: 0, dashVy: 0,
     detonationBonus: 1, angle: 0
   };
@@ -350,7 +336,6 @@ function applyPowerup(type) {
     case 'homing': player.homing = def.dur; break;
     case 'overcharge': player.overcharge = def.dur; break;
     case 'vampiric': player.vampiric = def.dur; break;
-    case 'timestop': player.timestop = def.dur; sfx('timestop'); break;
   }
 }
 
@@ -450,7 +435,6 @@ function update(dt) {
   if (player.homing > 0) player.homing -= dt;
   if (player.overcharge > 0) player.overcharge -= dt;
   if (player.vampiric > 0) player.vampiric -= dt;
-  if (player.timestop > 0) player.timestop -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
@@ -609,18 +593,17 @@ function update(dt) {
     // Move toward player with slight wobble
     const toPlayerX = player.x - e.x, toPlayerY = player.y - e.y;
     const tpDist = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY);
-    const timeFactor = player.timestop > 0 ? 0.15 : 1;
     if (tpDist > 1) {
-      e.wobble += dt * 2 * timeFactor;
+      e.wobble += dt * 2;
       const wobbleAngle = Math.atan2(toPlayerY, toPlayerX) + Math.sin(e.wobble) * 0.3;
-      e.x += Math.cos(wobbleAngle) * e.speed * dt * timeFactor;
-      e.y += Math.sin(wobbleAngle) * e.speed * dt * timeFactor;
+      e.x += Math.cos(wobbleAngle) * e.speed * dt;
+      e.y += Math.sin(wobbleAngle) * e.speed * dt;
     }
     for (let s of e.stuck) s.pulseT += dt;
 
     // Enemy shooting
     if (e.type === 'shooter' || e.type === 'boss') {
-      e.shootTimer -= dt * timeFactor;
+      e.shootTimer -= dt;
       if (e.shootTimer <= 0 && tpDist < ARENA_R) {
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
         const bspd = e.type === 'boss' ? 180 : 140;
@@ -815,71 +798,64 @@ function triggerDetonation() {
     spawnFloatingText(avgX, avgY + 30, `DETONATE +${flatBonus}`, col, stuckBonus > 1 ? 20 : 14);
   }
 
-  chainExplode(toDetonate, 0, 0, stuckBonus);
+  chainExplode(toDetonate, 0, stuckBonus);
 }
 
-function chainExplode(initialEnemies, delay, depth, stuckBonus) {
+function chainExplode(initialEnemies, depth, stuckBonus) {
   let nextWave = [];
   const megaMult = player.megablast > 0 ? 2 : 1;
   stuckBonus = stuckBonus || 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastRadius = 80 * megaMult * overMult * (1 + (stuckBonus - 1) * 0.15);
-  const stagger = 80; // ms between each explosion in the same wave
 
-  let idx = 0;
   for (let e of initialEnemies) {
     if (e.stuck.length === 0) continue;
     const count = e.stuck.length;
     const dmg = count * 2;
-    const thisDelay = delay + idx * stagger;
-    idx++;
 
-    setTimeout(() => {
-      e.hp -= dmg;
-      e.explodedBy = true;
-      const r = (30 + count * 10) * megaMult * overMult;
-      const sides = 5 + Math.floor(Math.random() * 4); // 5 to 8 sides
-      const rot = Math.random() * Math.PI * 2;
-      explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2, sides, rot });
-      shakeTimer = 0.2 + count * 0.05 * megaMult;
-      shakeIntensity = (4 + count * 2) * megaMult;
-      spawnParticles(e.x, e.y, (8 + count * 4) * megaMult, '#ff0', 0.5);
-      spawnParticles(e.x, e.y, (5 + count * 2) * megaMult, '#f80', 0.7);
-      if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
-      sfx('explode', { intensity: count * megaMult });
-      if (depth > 0) sfx('chain', { depth });
+    e.hp -= dmg;
+    e.explodedBy = true;
+    const r = (30 + count * 10) * megaMult * overMult;
+    const sides = 5 + Math.floor(Math.random() * 4);
+    const rot = Math.random() * Math.PI * 2;
+    explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2, sides, rot });
+    shakeTimer = 0.2 + count * 0.05 * megaMult;
+    shakeIntensity = (4 + count * 2) * megaMult;
+    spawnParticles(e.x, e.y, (8 + count * 4) * megaMult, '#ff0', 0.5);
+    spawnParticles(e.x, e.y, (5 + count * 2) * megaMult, '#f80', 0.7);
+    if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
+    sfx('explode', { intensity: count * megaMult });
+    if (depth > 0) sfx('chain', { depth });
 
-      if (player.magnet > 0) {
-        for (let other of enemies) {
-          if (other === e) continue;
-          const d = dist(other, e);
-          if (d < blastRadius + r + 40) {
-            const pull = Math.min(60, (blastRadius + r) / (d + 1) * 30);
-            other.x -= ((other.x - e.x) / d) * pull;
-            other.y -= ((other.y - e.y) / d) * pull;
-          }
-        }
-      }
-
-      for (let other of enemies) {
-        if (other === e || other.stuck.length === 0 || initialEnemies.includes(other)) continue;
-        if (dist(other, e) < blastRadius + r) nextWave.push(other);
-      }
-
+    if (player.magnet > 0) {
       for (let other of enemies) {
         if (other === e) continue;
-        if (dist(other, e) < r) {
-          other.hp -= Math.ceil(count * 0.5 * megaMult);
-          other.explodedBy = true;
+        const d = dist(other, e);
+        if (d < blastRadius + r + 40) {
+          const pull = Math.min(60, (blastRadius + r) / (d + 1) * 30);
+          other.x -= ((other.x - e.x) / d) * pull;
+          other.y -= ((other.y - e.y) / d) * pull;
         }
       }
+    }
 
-      e.stuckBeforeDetonation = count;
-      e.stuck = [];
-      if (nextWave.length > 0) { chainExplode(nextWave, stagger, depth + 1, stuckBonus); nextWave = []; }
-    }, thisDelay);
+    for (let other of enemies) {
+      if (other === e || other.stuck.length === 0 || initialEnemies.includes(other)) continue;
+      if (dist(other, e) < blastRadius + r) nextWave.push(other);
+    }
+
+    for (let other of enemies) {
+      if (other === e) continue;
+      if (dist(other, e) < r) {
+        other.hp -= Math.ceil(count * 0.5 * megaMult);
+        other.explodedBy = true;
+      }
+    }
+
+    e.stuckBeforeDetonation = count;
+    e.stuck = [];
   }
-  // Mega no longer consumed on detonation — it's a timed powerup now
+  if (nextWave.length > 0) chainExplode(nextWave, depth + 1, stuckBonus);
 }
 
 // ============ RIGHT-CLICK DETONATE (single listener) ============
@@ -1168,13 +1144,6 @@ function draw3D(now) {
 function drawHUD(now) {
   ctx.clearRect(0, 0, W, H);
 
-  // Timestop overlay
-  if (player.timestop > 0) {
-    const tsAlpha = Math.min(player.timestop / 1, 0.12);
-    ctx.fillStyle = `rgba(150,150,255,${tsAlpha})`;
-    ctx.fillRect(0, 0, W, H);
-  }
-
   // Floating texts (convert world to screen)
   for (let ft of floatingTexts) {
     const alpha = 1 - ft.t / ft.dur;
@@ -1241,7 +1210,6 @@ function drawHUD(now) {
   if (player.homing > 0) activePowers.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
   if (player.overcharge > 0) activePowers.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
   if (player.vampiric > 0) activePowers.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
-  if (player.timestop > 0) activePowers.push({ label: 'TIMESTOP', color: '#aaf', t: player.timestop, max: 5 });
   if (player.megablast > 0) activePowers.push({ label: 'MEGA', color: '#ff4', t: player.megablast, max: 10 });
   for (let ap of activePowers) {
     ctx.fillStyle = ap.color; ctx.font = 'bold 11px monospace';
