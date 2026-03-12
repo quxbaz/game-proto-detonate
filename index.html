@@ -235,7 +235,7 @@ const MAX_PARTICLES = 3000;
 const POWERUP_DEFS = {
   spread:    { label: 'SPREAD',    color: '#4ff', dur: 12 },
   rapid:     { label: 'RAPID',     color: '#f4f', dur: 10 },
-  megablast: { label: 'MEGA',      color: '#ff4', dur: 0 },
+  megablast: { label: 'MEGA',      color: '#ff4', dur: 10 },
   heal:      { label: '+HP',       color: '#4f4', dur: 0 },
   magnet:    { label: 'MAGNET',    color: '#88f', dur: 14 },
   shield:    { label: 'SHIELD',    color: '#ff8', dur: 8 },
@@ -257,7 +257,7 @@ function init() {
 
   player = {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
-    spread: 0, rapid: 0, megablast: false, magnet: 0, shield: 0,
+    spread: 0, rapid: 0, megablast: 0, magnet: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0, vampiric: 0, timestop: 0,
     dashCooldown: 0, dashTimer: 0, dashVx: 0, dashVy: 0,
     detonationBonus: 1, angle: 0
@@ -342,7 +342,7 @@ function applyPowerup(type) {
   switch (type) {
     case 'spread': player.spread = def.dur; break;
     case 'rapid': player.rapid = def.dur; break;
-    case 'megablast': player.megablast = true; break;
+    case 'megablast': player.megablast = def.dur; break;
     case 'heal': player.hp = Math.min(player.hp + 2, player.maxHp); break;
     case 'magnet': player.magnet = def.dur; break;
     case 'shield': player.shield = def.dur; break;
@@ -445,6 +445,7 @@ function update(dt) {
   if (player.rapid > 0) player.rapid -= dt;
   if (player.magnet > 0) player.magnet -= dt;
   if (player.shield > 0) player.shield -= dt;
+  if (player.megablast > 0) player.megablast -= dt;
   if (player.ricochet > 0) player.ricochet -= dt;
   if (player.homing > 0) player.homing -= dt;
   if (player.overcharge > 0) player.overcharge -= dt;
@@ -460,13 +461,15 @@ function update(dt) {
   if (mouse.down && shootCooldown <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
     const bspd = 450;
+    const bRadius = player.megablast > 0 ? 9 : 4;
+    const mega = player.megablast > 0;
     if (player.spread > 0) {
       for (let i = -2; i <= 2; i++) {
         const sa = a + i * 0.1;
-        bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: 4, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd });
+        bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: bRadius, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd, mega });
       }
     } else {
-      bullets.push({ x: player.x + Math.cos(a) * 16, y: player.y + Math.sin(a) * 16, r: 4, vx: Math.cos(a) * bspd, vy: Math.sin(a) * bspd });
+      bullets.push({ x: player.x + Math.cos(a) * 16, y: player.y + Math.sin(a) * 16, r: bRadius, vx: Math.cos(a) * bspd, vy: Math.sin(a) * bspd, mega });
     }
     shootCooldown = fireRate;
     sfx('shoot');
@@ -817,15 +820,19 @@ function triggerDetonation() {
 
 function chainExplode(initialEnemies, delay, depth, stuckBonus) {
   let nextWave = [];
-  const megaMult = player.megablast ? 2 : 1;
+  const megaMult = player.megablast > 0 ? 2 : 1;
   stuckBonus = stuckBonus || 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastRadius = 80 * megaMult * overMult * (1 + (stuckBonus - 1) * 0.15);
+  const stagger = 80; // ms between each explosion in the same wave
 
+  let idx = 0;
   for (let e of initialEnemies) {
     if (e.stuck.length === 0) continue;
     const count = e.stuck.length;
     const dmg = count * 2;
+    const thisDelay = delay + idx * stagger;
+    idx++;
 
     setTimeout(() => {
       e.hp -= dmg;
@@ -867,10 +874,10 @@ function chainExplode(initialEnemies, delay, depth, stuckBonus) {
 
       e.stuckBeforeDetonation = count;
       e.stuck = [];
-      if (nextWave.length > 0) { chainExplode(nextWave, 100, depth + 1, stuckBonus); nextWave = []; }
-    }, delay);
+      if (nextWave.length > 0) { chainExplode(nextWave, stagger, depth + 1, stuckBonus); nextWave = []; }
+    }, thisDelay);
   }
-  if (depth === 0) player.megablast = false;
+  // Mega no longer consumed on detonation — it's a timed powerup now
 }
 
 // ============ RIGHT-CLICK DETONATE (single listener) ============
@@ -1001,6 +1008,15 @@ function draw3D(now) {
         m.add(ring);
         return m;
       }
+      if (b.mega) {
+        const group = new THREE.Group();
+        const core = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+        group.add(core);
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(13, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.3 }));
+        glow.name = 'mglow';
+        group.add(glow);
+        return group;
+      }
       return new THREE.Mesh(bulletGeo, bulletMat);
     });
     mesh.position.set(b.x, b.y, 4);
@@ -1010,6 +1026,14 @@ function draw3D(now) {
       mesh.material.color.setRGB(1, 0.4 + pulse * 0.4, pulse * 0.1);
       const ring = mesh.getObjectByName('ring');
       if (ring) { ring.rotation.x = now * 0.005; ring.rotation.y = now * 0.003; ring.material.opacity = 0.3 + pulse * 0.3; }
+    }
+    if (b.mega) {
+      const mglow = mesh.getObjectByName('mglow');
+      if (mglow) {
+        const pulse = 0.5 + 0.5 * Math.sin(now * 0.01 + b.x);
+        mglow.scale.setScalar(0.9 + pulse * 0.3);
+        mglow.material.opacity = 0.2 + pulse * 0.15;
+      }
     }
   }
 
@@ -1201,7 +1225,7 @@ function drawHUD(now) {
   if (player.overcharge > 0) activePowers.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
   if (player.vampiric > 0) activePowers.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
   if (player.timestop > 0) activePowers.push({ label: 'TIMESTOP', color: '#aaf', t: player.timestop, max: 5 });
-  if (player.megablast) activePowers.push({ label: 'MEGA!', color: '#ff4', t: 1, max: 1 });
+  if (player.megablast > 0) activePowers.push({ label: 'MEGA', color: '#ff4', t: player.megablast, max: 10 });
   for (let ap of activePowers) {
     ctx.fillStyle = ap.color; ctx.font = 'bold 11px monospace';
     ctx.fillText(ap.label, 10, hudY);
