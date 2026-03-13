@@ -215,6 +215,7 @@ let keys = {};
 let mouse = { sx: W / 2, sy: H / 2, down: false };
 let detonating = false;
 let startScreen = true;
+let paused = false;
 
 // ============ PERK SYSTEM ============
 const ALL_PERKS = [
@@ -342,6 +343,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
   if (e.code === 'KeyR' && gameOver) init();
+  if (e.code === 'Escape' && !gameOver && !startScreen && !perkChoices) paused = !paused;
   // Perk selection with 1/2/3
   if (perkChoices) {
     if (e.code === 'Digit1') selectPerk(0);
@@ -491,6 +493,7 @@ function spawnBoss() {
 function update(dt) {
   if (startScreen) return;
   if (gameOver) return;
+  if (paused) return;
   if (perkChoices) return; // Paused for perk selection
 
   // Player aim angle
@@ -1524,6 +1527,16 @@ function drawHUD(now) {
   ctx.beginPath(); ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 15, cy); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy - 6); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 15); ctx.stroke();
+
+  // Paused
+  if (paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', W / 2, H / 2 - 10);
+    ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
+    ctx.fillText('Press ESC to resume', W / 2, H / 2 + 25);
+    ctx.textAlign = 'left';
+  }
 
   // Start screen
   if (startScreen) {
