@@ -210,9 +210,72 @@ let player, bullets, enemies, explosions, particles, powerups;
 let enemyBullets, floatingTexts, waveAnnounce;
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
+let xp, playerLevel, xpToNext, perkChoices, perksPicked;
 let keys = {};
 let mouse = { sx: W / 2, sy: H / 2, down: false };
 let detonating = false;
+
+// ============ PERK SYSTEM ============
+const ALL_PERKS = [
+  { id: 'maxHp',       label: '+1 Max HP',           color: '#f44', desc: 'Increases maximum health by 1 and heals 1 HP', icon: '+HP' },
+  { id: 'moveSpeed',   label: 'Swift',               color: '#4af', desc: 'Move 12% faster', icon: 'SPD' },
+  { id: 'fireRate',    label: 'Trigger Happy',        color: '#f4f', desc: 'Shoot 15% faster', icon: 'ROF' },
+  { id: 'bulletSize',  label: 'Big Bullets',          color: '#ff4', desc: 'Bullets are 25% larger', icon: 'BIG' },
+  { id: 'blastRadius', label: 'Wide Blast',           color: '#fa0', desc: 'Explosions 20% bigger', icon: 'AOE' },
+  { id: 'shrapnel',    label: 'Extra Shrapnel',       color: '#f84', desc: '+50% shrapnel on chain kills', icon: 'SHR' },
+  { id: 'powerDur',    label: 'Lasting Power',        color: '#8ff', desc: 'Powerups last 30% longer', icon: 'DUR' },
+  { id: 'dropRate',    label: 'Lucky',                color: '#4f4', desc: 'Powerup drop rate +15%', icon: 'LCK' },
+  { id: 'dashCdr',     label: 'Quick Dash',           color: '#44f', desc: 'Dash cooldown -25%', icon: 'DSH' },
+  { id: 'bulletSpeed', label: 'Velocity',             color: '#aaf', desc: 'Bullets travel 20% faster', icon: 'VEL' },
+  { id: 'chainRange',  label: 'Chain Reach',          color: '#ff8', desc: 'Chain explosions reach 25% further', icon: 'CHN' },
+  { id: 'armor',       label: 'Tough',                color: '#aaa', desc: '20% chance to ignore damage', icon: 'ARM' },
+  { id: 'xpBoost',     label: 'Fast Learner',         color: '#af4', desc: '+20% XP gained', icon: 'XP+' },
+  { id: 'multishot',   label: 'Double Tap',           color: '#f8f', desc: 'Fire an extra bullet', icon: 'x2' },
+  { id: 'vampiricPerm',label: 'Blood Drain',          color: '#f22', desc: '10% chance to heal on kill', icon: 'VMP' },
+];
+
+function getPerkCount(id) {
+  return perksPicked.filter(p => p === id).length;
+}
+
+function xpForLevel(lvl) {
+  return Math.floor(50 + lvl * 30 + lvl * lvl * 5);
+}
+
+function gainXp(amount) {
+  const xpMult = 1 + getPerkCount('xpBoost') * 0.2;
+  xp += Math.floor(amount * xpMult);
+  while (xp >= xpToNext) {
+    xp -= xpToNext;
+    playerLevel++;
+    xpToNext = xpForLevel(playerLevel);
+    // Apply max HP perk immediately if chosen before
+    sfx('powerup');
+    offerPerks();
+  }
+}
+
+function offerPerks() {
+  // Pick 3 random unique perks
+  const shuffled = ALL_PERKS.slice().sort(() => Math.random() - 0.5);
+  perkChoices = shuffled.slice(0, 3);
+}
+
+function selectPerk(index) {
+  if (!perkChoices || index >= perkChoices.length) return;
+  const perk = perkChoices[index];
+  perksPicked.push(perk.id);
+
+  // Immediate effects
+  if (perk.id === 'maxHp') {
+    player.maxHp++;
+    player.hp = Math.min(player.hp + 1, player.maxHp);
+  }
+
+  spawnFloatingText(player.x, player.y + 30, perk.label, perk.color, 18);
+  spawnParticles(player.x, player.y, 15, perk.color, 0.5);
+  perkChoices = null;
+}
 
 highScore = parseInt(localStorage.getItem('arenaShooterHS') || '0');
 
@@ -224,7 +287,6 @@ const POWERUP_DEFS = {
   rapid:     { label: 'RAPID',     color: '#f4f', dur: 10 },
   megablast: { label: 'MEGA',      color: '#ff4', dur: 10 },
   heal:      { label: '+HP',       color: '#4f4', dur: 0 },
-  magnet:    { label: 'MAGNET',    color: '#88f', dur: 14 },
   shield:    { label: 'SHIELD',    color: '#ff8', dur: 8 },
   ricochet:  { label: 'RICOCHET',  color: '#f84', dur: 10 },
   homing:    { label: 'HOMING',    color: '#8ff', dur: 8 },
@@ -243,7 +305,7 @@ function init() {
 
   player = {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
-    spread: 0, rapid: 0, megablast: 0, magnet: 0, shield: 0,
+    spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0, vampiric: 0,
     dashCooldown: 0, dashTimer: 0, dashVx: 0, dashVy: 0,
     detonationBonus: 1, angle: 0
@@ -267,6 +329,11 @@ function init() {
   combo = 0;
   comboTimer = 0;
   maxCombo = 0;
+  xp = 0;
+  playerLevel = 1;
+  xpToNext = xpForLevel(1);
+  perkChoices = null;
+  perksPicked = [];
 }
 
 init();
@@ -276,13 +343,38 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
   if (e.code === 'KeyR' && gameOver) init();
+  // Perk selection with 1/2/3
+  if (perkChoices) {
+    if (e.code === 'Digit1') selectPerk(0);
+    else if (e.code === 'Digit2') selectPerk(1);
+    else if (e.code === 'Digit3') selectPerk(2);
+  }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 document.addEventListener('mousemove', e => {
   mouse.sx = e.clientX; // raw screen coords
   mouse.sy = e.clientY;
 });
-document.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
+document.addEventListener('mousedown', e => {
+  if (e.button === 0) {
+    if (perkChoices) {
+      // Check if clicking a perk card
+      const cardW = 200, cardH = 140, gap = 30;
+      const totalW = perkChoices.length * cardW + (perkChoices.length - 1) * gap;
+      const startX = W / 2 - totalW / 2;
+      const cardY = H / 2 - cardH / 2 + 20;
+      for (let i = 0; i < perkChoices.length; i++) {
+        const cx = startX + i * (cardW + gap);
+        if (e.clientX >= cx && e.clientX <= cx + cardW && e.clientY >= cardY && e.clientY <= cardY + cardH) {
+          selectPerk(i);
+          return;
+        }
+      }
+    } else {
+      mouse.down = true;
+    }
+  }
+});
 document.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -325,17 +417,18 @@ function spawnParticles(x, y, count, color, life) {
 
 function applyPowerup(type) {
   const def = POWERUP_DEFS[type];
+  const durMult = 1 + getPerkCount('powerDur') * 0.3;
+  const dur = def.dur * durMult;
   switch (type) {
-    case 'spread': player.spread = def.dur; break;
-    case 'rapid': player.rapid = def.dur; break;
-    case 'megablast': player.megablast = def.dur; break;
+    case 'spread': player.spread = dur; break;
+    case 'rapid': player.rapid = dur; break;
+    case 'megablast': player.megablast = dur; break;
     case 'heal': player.hp = Math.min(player.hp + 2, player.maxHp); break;
-    case 'magnet': player.magnet = def.dur; break;
-    case 'shield': player.shield = def.dur; break;
-    case 'ricochet': player.ricochet = def.dur; break;
-    case 'homing': player.homing = def.dur; break;
-    case 'overcharge': player.overcharge = def.dur; break;
-    case 'vampiric': player.vampiric = def.dur; break;
+    case 'shield': player.shield = dur; break;
+    case 'ricochet': player.ricochet = dur; break;
+    case 'homing': player.homing = dur; break;
+    case 'overcharge': player.overcharge = dur; break;
+    case 'vampiric': player.vampiric = dur; break;
   }
 }
 
@@ -393,6 +486,7 @@ function spawnBoss() {
 // ============ UPDATE ============
 function update(dt) {
   if (gameOver) return;
+  if (perkChoices) return; // Paused for perk selection
 
   // Player aim angle
   // Convert screen mouse to world coords (camera follows player)
@@ -401,7 +495,7 @@ function update(dt) {
   player.angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
 
   // Movement
-  let spd = 180 * dt;
+  let spd = 180 * (1 + getPerkCount('moveSpeed') * 0.12) * dt;
   if (player.dashCooldown > 0) player.dashCooldown -= dt;
   if (player.dashTimer > 0) {
     player.dashTimer -= dt;
@@ -428,7 +522,6 @@ function update(dt) {
   // Powerup timers
   if (player.spread > 0) player.spread -= dt;
   if (player.rapid > 0) player.rapid -= dt;
-  if (player.magnet > 0) player.magnet -= dt;
   if (player.shield > 0) player.shield -= dt;
   if (player.megablast > 0) player.megablast -= dt;
   if (player.ricochet > 0) player.ricochet -= dt;
@@ -440,13 +533,16 @@ function update(dt) {
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
   // Shooting - mouse aim
-  const fireRate = player.rapid > 0 ? 0.06 : 0.14;
+  const baseRate = player.rapid > 0 ? 0.06 : 0.14;
+  const fireRate = baseRate / (1 + getPerkCount('fireRate') * 0.15);
   shootCooldown -= dt;
   if (mouse.down && shootCooldown <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
-    const bspd = 450;
-    const bRadius = player.megablast > 0 ? 9 : 4;
+    const bspd = 450 * (1 + getPerkCount('bulletSpeed') * 0.2);
+    const baseBr = player.megablast > 0 ? 9 : 4;
+    const bRadius = baseBr * (1 + getPerkCount('bulletSize') * 0.25);
     const mega = player.megablast > 0;
+    const extraShots = getPerkCount('multishot');
     if (player.spread > 0) {
       for (let i = -2; i <= 2; i++) {
         const sa = a + i * 0.1;
@@ -454,6 +550,11 @@ function update(dt) {
       }
     } else {
       bullets.push({ x: player.x + Math.cos(a) * 16, y: player.y + Math.sin(a) * 16, r: bRadius, vx: Math.cos(a) * bspd, vy: Math.sin(a) * bspd, mega });
+      for (let ms = 0; ms < extraShots; ms++) {
+        const offset = (ms + 1) * 0.08 * (ms % 2 === 0 ? 1 : -1);
+        const sa = a + offset;
+        bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: bRadius, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd, mega });
+      }
     }
     shootCooldown = fireRate;
     sfx('shoot');
@@ -471,7 +572,7 @@ function update(dt) {
     player.dashVx = (dx / len) * 500;
     player.dashVy = (dy / len) * 500;
     player.dashTimer = 0.12;
-    player.dashCooldown = 0.8;
+    player.dashCooldown = 0.8 * Math.pow(0.75, getPerkCount('dashCdr'));
     sfx('shoot');
   }
 
@@ -557,6 +658,9 @@ function update(dt) {
         player.shield = 0;
         spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
         spawnFloatingText(player.x, player.y + 20, 'BLOCKED!', '#ff8', 14);
+      } else if (getPerkCount('armor') > 0 && Math.random() < getPerkCount('armor') * 0.2) {
+        spawnFloatingText(player.x, player.y + 20, 'DEFLECT!', '#aaa', 14);
+        spawnParticles(player.x, player.y, 4, '#aaa', 0.2);
       } else {
         player.hp--;
         player.invuln = 1.5;
@@ -629,6 +733,10 @@ function update(dt) {
       if (player.shield > 0) {
         player.shield = 0;
         spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
+      } else if (getPerkCount('armor') > 0 && Math.random() < getPerkCount('armor') * 0.2) {
+        spawnFloatingText(player.x, player.y + 20, 'DEFLECT!', '#aaa', 14);
+        spawnParticles(player.x, player.y, 4, '#aaa', 0.2);
+        player.invuln = 0.5;
       } else {
         player.hp--;
         player.invuln = 1.5;
@@ -668,6 +776,16 @@ function update(dt) {
         spawnFloatingText(e.x, e.y + 40, 'BOSS DOWN!', '#f44', 24);
       }
       sfx('enemyDie');
+      gainXp(e.score);
+
+      // Permanent vampiric perk
+      if (getPerkCount('vampiricPerm') > 0 && player.hp < player.maxHp) {
+        const chance = getPerkCount('vampiricPerm') * 0.1;
+        if (Math.random() < chance) {
+          player.hp = Math.min(player.hp + 1, player.maxHp);
+          spawnFloatingText(player.x, player.y + 25, '+1 HP', '#f22', 12);
+        }
+      }
 
       // Vampiric heal
       if (player.vampiric > 0 && player.hp < player.maxHp) {
@@ -683,7 +801,8 @@ function update(dt) {
       if (e.explodedBy) {
         const stuckCount = e.stuckBeforeDetonation || (e.stuck ? e.stuck.length : 0);
         const hpFactor = Math.ceil(e.maxHp / 3);
-        const shrapnelCount = Math.max(stuckCount, 2) * hpFactor;
+        const shrapnelMult = 1 + getPerkCount('shrapnel') * 0.5;
+        const shrapnelCount = Math.floor(Math.max(stuckCount, 2) * hpFactor * shrapnelMult);
         for (let s = 0; s < shrapnelCount && bullets.length < MAX_BULLETS; s++) {
           const angle = (Math.PI * 2 / shrapnelCount) * s + (Math.random() - 0.5) * 0.5;
           const spd2 = 180 + Math.random() * 120;
@@ -692,7 +811,8 @@ function update(dt) {
       }
 
       // Powerup drop
-      const dropChance = e.type === 'boss' ? 1.0 : e.type === 'small' ? 0.10 : 0.25;
+      const dropBonus = getPerkCount('dropRate') * 0.15;
+      const dropChance = e.type === 'boss' ? 1.0 : Math.min((e.type === 'small' ? 0.10 : 0.25) + dropBonus, 0.8);
       if (Math.random() < dropChance) {
         const types = Object.keys(POWERUP_DEFS);
         const ptype = types[Math.floor(Math.random() * types.length)];
@@ -806,7 +926,9 @@ function chainExplode(initialEnemies, depth, stuckBonus) {
   const megaMult = player.megablast > 0 ? 2 : 1;
   stuckBonus = stuckBonus || 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
-  const blastRadius = 80 * megaMult * overMult * (1 + (stuckBonus - 1) * 0.15);
+  const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
+  const chainPerk = 1 + getPerkCount('chainRange') * 0.25;
+  const blastRadius = 80 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
 
   for (let e of initialEnemies) {
     if (e.stuck.length === 0) continue;
@@ -827,21 +949,9 @@ function chainExplode(initialEnemies, depth, stuckBonus) {
     sfx('explode', { intensity: count * megaMult });
     if (depth > 0) sfx('chain', { depth });
 
-    if (player.magnet > 0) {
-      for (let other of enemies) {
-        if (other === e) continue;
-        const d = dist(other, e);
-        if (d < blastRadius + r + 40) {
-          const pull = Math.min(60, (blastRadius + r) / (d + 1) * 30);
-          other.x -= ((other.x - e.x) / d) * pull;
-          other.y -= ((other.y - e.y) / d) * pull;
-        }
-      }
-    }
-
     for (let other of enemies) {
       if (other === e || other.stuck.length === 0 || initialEnemies.includes(other)) continue;
-      if (dist(other, e) < blastRadius + r) nextWave.push(other);
+      if (dist(other, e) < (blastRadius + r) * chainPerk) nextWave.push(other);
     }
 
     for (let other of enemies) {
@@ -1204,7 +1314,6 @@ function drawHUD(now) {
   const activePowers = [];
   if (player.spread > 0) activePowers.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
   if (player.rapid > 0) activePowers.push({ label: 'RAPID', color: '#f4f', t: player.rapid, max: 10 });
-  if (player.magnet > 0) activePowers.push({ label: 'MAGNET', color: '#88f', t: player.magnet, max: 14 });
   if (player.shield > 0) activePowers.push({ label: 'SHIELD', color: '#ff8', t: player.shield, max: 8 });
   if (player.ricochet > 0) activePowers.push({ label: 'RICOCHET', color: '#f84', t: player.ricochet, max: 10 });
   if (player.homing > 0) activePowers.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
@@ -1259,6 +1368,98 @@ function drawHUD(now) {
   // Controls
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px monospace';
   ctx.fillText('WASD: Move | Mouse: Aim & Shoot | Right-Click/X: Detonate | Space/C: Dash | R: Restart', W / 2 - 300, H - 10);
+
+  // XP bar
+  const xpBarW = 160, xpBarH = 6;
+  const xpBarX = 10, xpBarY = hudY + 6;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(xpBarX, xpBarY, xpBarW, xpBarH);
+  ctx.fillStyle = '#af4';
+  ctx.fillRect(xpBarX, xpBarY, xpBarW * (xp / xpToNext), xpBarH);
+  ctx.fillStyle = '#af4'; ctx.font = 'bold 11px monospace';
+  ctx.fillText(`LV ${playerLevel}`, xpBarX, xpBarY + xpBarH + 12);
+  ctx.fillStyle = '#686'; ctx.font = '10px monospace';
+  ctx.fillText(`${xp}/${xpToNext} XP`, xpBarX + 40, xpBarY + xpBarH + 12);
+
+  // Acquired perks (small icons)
+  if (perksPicked.length > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';
+    ctx.fillText('PERKS:', xpBarX, xpBarY + xpBarH + 26);
+    let px = xpBarX + 42;
+    const perkCounts = {};
+    for (const pid of perksPicked) perkCounts[pid] = (perkCounts[pid] || 0) + 1;
+    for (const [pid, cnt] of Object.entries(perkCounts)) {
+      const pdef = ALL_PERKS.find(p => p.id === pid);
+      if (!pdef) continue;
+      ctx.fillStyle = pdef.color; ctx.font = 'bold 9px monospace';
+      ctx.fillText(pdef.icon + (cnt > 1 ? `x${cnt}` : ''), px, xpBarY + xpBarH + 26);
+      px += (pdef.icon.length + (cnt > 1 ? 3 : 0)) * 6 + 6;
+    }
+  }
+
+  // Perk selection screen
+  if (perkChoices) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#af4'; ctx.font = 'bold 30px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(`LEVEL UP! (Lv ${playerLevel})`, W / 2, H / 2 - 110);
+    ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
+    ctx.fillText('Choose a perk (click or press 1/2/3)', W / 2, H / 2 - 80);
+
+    const cardW = 200, cardH = 140, gap = 30;
+    const totalW = perkChoices.length * cardW + (perkChoices.length - 1) * gap;
+    const startX = W / 2 - totalW / 2;
+    const cardY = H / 2 - cardH / 2 + 20;
+
+    for (let i = 0; i < perkChoices.length; i++) {
+      const perk = perkChoices[i];
+      const cx = startX + i * (cardW + gap);
+      const stacks = getPerkCount(perk.id);
+
+      // Card hover detection
+      const hovered = mouse.sx >= cx && mouse.sx <= cx + cardW && mouse.sy >= cardY && mouse.sy <= cardY + cardH;
+
+      // Card background
+      ctx.fillStyle = hovered ? 'rgba(60,60,80,0.95)' : 'rgba(30,30,50,0.95)';
+      ctx.fillRect(cx, cardY, cardW, cardH);
+      ctx.strokeStyle = perk.color;
+      ctx.lineWidth = hovered ? 3 : 1.5;
+      ctx.strokeRect(cx, cardY, cardW, cardH);
+
+      // Number
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`[${i + 1}]`, cx + 8, cardY + 22);
+
+      // Icon
+      ctx.fillStyle = perk.color; ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(perk.icon, cx + cardW / 2, cardY + 38);
+
+      // Label
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace';
+      ctx.fillText(perk.label, cx + cardW / 2, cardY + 62);
+
+      // Description (word wrap)
+      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
+      const words = perk.desc.split(' ');
+      let line = '', ly = cardY + 82;
+      for (const w of words) {
+        const test = line + (line ? ' ' : '') + w;
+        if (ctx.measureText(test).width > cardW - 20) {
+          ctx.fillText(line, cx + cardW / 2, ly); ly += 14; line = w;
+        } else { line = test; }
+      }
+      if (line) ctx.fillText(line, cx + cardW / 2, ly);
+
+      // Stack count
+      if (stacks > 0) {
+        ctx.fillStyle = perk.color; ctx.font = '10px monospace';
+        ctx.fillText(`(owned: ${stacks})`, cx + cardW / 2, cardY + cardH - 8);
+      }
+    }
+    ctx.textAlign = 'left';
+  }
 
   // Crosshair - follows mouse directly
   const cx = mouse.sx;
