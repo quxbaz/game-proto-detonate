@@ -239,7 +239,7 @@ function getPerkCount(id) {
 }
 
 function xpForLevel(lvl) {
-  return Math.floor(100 + lvl * 80 + lvl * lvl * 20);
+  return Math.floor(200 + lvl * 150 + lvl * lvl * 50);
 }
 
 function gainXp(amount) {
@@ -340,7 +340,7 @@ init();
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
-  if (startScreen) { startScreen = false; init(); return; }
+  if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
   if (e.code === 'KeyR' && gameOver) init();
   // Perk selection with 1/2/3
   if (perkChoices) {
@@ -356,7 +356,7 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mousedown', e => {
   if (e.button === 0) {
-    if (startScreen) { startScreen = false; init(); return; }
+    if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
     if (perkChoices) {
       // Check if clicking a perk card
       const cardW = 200, cardH = 140, gap = 30;
