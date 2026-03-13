@@ -69,7 +69,7 @@ for (let i = 0; i < MAX_EXP_LIGHTS; i++) {
 }
 
 // ============ ARENA FLOOR ============
-const ARENA_R = 600;
+const ARENA_R = 1200;
 const floorGeo = new THREE.CircleGeometry(ARENA_R, 64);
 const floorMat = new THREE.MeshStandardMaterial({ color: 0x222244, metalness: 0.2, roughness: 0.8 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -82,7 +82,7 @@ const ring = new THREE.Mesh(ringGeo, ringMat);
 ring.position.z = -2;
 scene.add(ring);
 // Grid lines on floor
-const gridHelper = new THREE.GridHelper(ARENA_R * 2, 30, 0x151530, 0x151530);
+const gridHelper = new THREE.GridHelper(ARENA_R * 2, 30, 0x2a2a50, 0x2a2a50);
 gridHelper.rotation.x = Math.PI / 2;
 gridHelper.position.z = -4;
 scene.add(gridHelper);
@@ -1292,6 +1292,41 @@ function drawHUD(now) {
   // Wave
   ctx.fillStyle = '#666'; ctx.font = '11px monospace';
   ctx.fillText(`WAVE ${waveNum}`, W - 70, 14);
+
+  // Minimap
+  {
+    const mmR = 60; // minimap radius
+    const mmX = W - mmR - 15, mmY = H - mmR - 25;
+    const scale = mmR / ARENA_R;
+
+    // Background
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(mmX, mmY, mmR, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#446'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(mmX, mmY, mmR, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Enemies
+    for (let e of enemies) {
+      const ex = mmX + e.x * scale, ey = mmY - e.y * scale;
+      const er = Math.max(1.5, e.r * scale * 0.5);
+      ctx.fillStyle = e.stuck.length > 0 ? '#fa0' : e.color;
+      ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Powerups
+    for (let p of powerups) {
+      const px2 = mmX + p.x * scale, py2 = mmY - p.y * scale;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(px2 - 1.5, py2 - 1.5, 3, 3);
+    }
+
+    // Player
+    ctx.fillStyle = '#4af';
+    const ppx = mmX + player.x * scale, ppy = mmY - player.y * scale;
+    ctx.beginPath(); ctx.arc(ppx, ppy, 3, 0, Math.PI * 2); ctx.fill();
+  }
 
   // Controls
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px monospace';
