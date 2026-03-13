@@ -239,7 +239,7 @@ function getPerkCount(id) {
 }
 
 function xpForLevel(lvl) {
-  return Math.floor(50 + lvl * 30 + lvl * lvl * 5);
+  return Math.floor(100 + lvl * 80 + lvl * lvl * 20);
 }
 
 function gainXp(amount) {
@@ -739,10 +739,11 @@ function update(dt) {
         }
       }
 
-      // Powerup drop
+      // Powerup drop (max 5 on field at once)
+      const MAX_POWERUPS = 5;
       const dropBonus = getPerkCount('dropRate') * 0.15;
       const dropChance = e.type === 'boss' ? 1.0 : Math.min((e.type === 'small' ? 0.10 : 0.25) + dropBonus, 0.8);
-      if (Math.random() < dropChance) {
+      if (powerups.length < MAX_POWERUPS && Math.random() < dropChance) {
         const types = Object.keys(POWERUP_DEFS);
         const ptype = types[Math.floor(Math.random() * types.length)];
         const def = POWERUP_DEFS[ptype];
