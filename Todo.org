@@ -1,8 +1,1 @@
 Todo
-
-- [X] Make mega bullets bigger.
-- [ ] Improve performance (lag spikes).
-- [ ] Make explosions visually polygonal instead of round with random number of sides.
-- [ ] Make explosions happen quickly 1 by 1 instead of all at once.
-- [ ] Add levels to the game. Each level has a final boss or unique set of
-  enemies at the end which must be destroyed to win.
