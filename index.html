@@ -62,7 +62,7 @@ scene.add(dirLight);
 const MAX_EXP_LIGHTS = 6;
 const expLights = [];
 for (let i = 0; i < MAX_EXP_LIGHTS; i++) {
-  const l = new THREE.PointLight(0xff3300, 0, 300);
+  const l = new THREE.PointLight(0xff8800, 0, 300);
   l.visible = false;
   scene.add(l);
   expLights.push(l);
@@ -1334,7 +1334,7 @@ function draw3D(now) {
         return new THREE.ShapeGeometry(shape);
       }
       const polyGeo = makeIrregularPoly(sides);
-      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 1.0 }));
+      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 1.0 }));
       const coreGeo = makeIrregularPoly(sides);
       const core = new THREE.Mesh(coreGeo, explosionCoreMat.clone());
       core.name = 'core';
@@ -1346,7 +1346,7 @@ function draw3D(now) {
     mesh.scale.setScalar(Math.max(0.1, ex.r));
     mesh.rotation.z = ex.rot || 0;
     mesh.material.opacity = Math.max(alpha, 0.4);
-    mesh.material.color.setHSL(0.02 - alpha * 0.01, 1, 0.45 + alpha * 0.2);
+    mesh.material.color.setHSL(0.14 - alpha * 0.02, 1, 0.55 + alpha * 0.25);
     const core = mesh.getObjectByName('core');
     if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
     if (li < MAX_EXP_LIGHTS) {
