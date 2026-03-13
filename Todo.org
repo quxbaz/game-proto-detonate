@@ -32,8 +32,7 @@ Todo
      boosted stats. RARE is a modifier applied to an existing unit.
      Differentiate the unit visually. Rare units can also have one or more perks
      (see below).
-  8) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For
-     example:
+  8) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For example:
      - High durability
      - Super high durability
      - Extra speed
@@ -44,6 +43,9 @@ Todo
      - High regen.
      - Regen field in AoE around itself.
      - Kamikaze. Does extra damage and destroys itself on contact with player.
+  9) [ ] FIREWALKER. This enemy unit leaves a trail of damaging fire in its
+     wake. It has moderately fast walk speed. Fire trail cannot be damaged. It
+     goes away after N seconds.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
