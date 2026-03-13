@@ -20,6 +20,8 @@ Todo
   4) [X] Add HIVE enemy type. This units spawns somewhere on the map (not the
      edge. It is larger, immobile, and very tanky. It spawns critter units very
      quickly. Similar to SPAWNER, but more extreme.
+  5) [ ] Make HIVE unit bigger. It should be differentiated from other large
+     enemy units.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
