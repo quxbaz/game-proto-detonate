@@ -230,7 +230,6 @@ const ALL_PERKS = [
   { id: 'bulletSpeed', label: 'Velocity',             color: '#aaf', desc: 'Bullets travel 20% faster', icon: 'VEL' },
   { id: 'chainRange',  label: 'Chain Reach',          color: '#ff8', desc: 'Chain explosions reach 25% further', icon: 'CHN' },
   { id: 'armor',       label: 'Tough',                color: '#aaa', desc: '20% chance to ignore damage', icon: 'ARM' },
-  { id: 'xpBoost',     label: 'Fast Learner',         color: '#af4', desc: '+20% XP gained', icon: 'XP+' },
   { id: 'multishot',   label: 'Double Tap',           color: '#f8f', desc: 'Fire an extra bullet', icon: 'x2' },
   { id: 'vampiricPerm',label: 'Blood Drain',          color: '#f22', desc: '10% chance to heal on kill', icon: 'VMP' },
 ];
@@ -244,7 +243,7 @@ function xpForLevel(lvl) {
 }
 
 function gainXp(amount) {
-  const xpMult = 1 + getPerkCount('xpBoost') * 0.2;
+  const xpMult = 1;
   xp += Math.floor(amount * xpMult);
   while (xp >= xpToNext) {
     xp -= xpToNext;
@@ -280,8 +279,8 @@ function selectPerk(index) {
 
 highScore = parseInt(localStorage.getItem('arenaShooterHS') || '0');
 
-const MAX_BULLETS = 1500;
-const MAX_PARTICLES = 3000;
+const MAX_BULLETS = 3000;
+const MAX_PARTICLES = 6000;
 
 const POWERUP_DEFS = {
   spread:    { label: 'SPREAD',    color: '#4ff', dur: 12 },
@@ -293,6 +292,11 @@ const POWERUP_DEFS = {
   homing:    { label: 'HOMING',    color: '#8ff', dur: 8 },
   overcharge:{ label: 'OVERCHARGE',color: '#fa0', dur: 10 },
   vampiric:  { label: 'VAMPIRIC',  color: '#f44', dur: 12 },
+};
+
+const WEAPON_DROP_DEFS = {
+  shotgun:   { label: 'SHOTGUN',  color: '#f84', dur: 10 },
+  minigun:   { label: 'MINIGUN',  color: '#ff4', dur: 10 },
 };
 
 function init() {
@@ -308,6 +312,7 @@ function init() {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0, vampiric: 0,
+    shotgun: 0, minigun: 0,
     detonationBonus: 1, angle: 0
   };
   bullets = [];
@@ -341,7 +346,7 @@ init();
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
-  if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
+  if (startScreen) return;
   if (e.code === 'KeyR' && gameOver) init();
   if (e.code === 'Escape' && !gameOver && !startScreen && !perkChoices) paused = !paused;
   // Perk selection with 1/2/3
@@ -359,6 +364,7 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mousedown', e => {
   if (e.button === 0) {
     if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
+    if (paused) { paused = false; return; }
     if (perkChoices) {
       // Check if clicking a perk card
       const cardW = 200, cardH = 140, gap = 30;
@@ -432,6 +438,15 @@ function applyPowerup(type) {
     case 'overcharge': player.overcharge = dur; break;
     case 'vampiric': player.vampiric = dur; break;
   }
+}
+
+function applyWeaponDrop(type) {
+  const def = WEAPON_DROP_DEFS[type];
+  const durMult = 1 + getPerkCount('powerDur') * 0.3;
+  const dur = def.dur * durMult;
+  // Weapons are exclusive: picking one replaces the other
+  player.shotgun = 0; player.minigun = 0;
+  player[type] = dur;
 }
 
 function endGame() {
@@ -529,37 +544,56 @@ function update(dt) {
   if (player.homing > 0) player.homing -= dt;
   if (player.overcharge > 0) player.overcharge -= dt;
   if (player.vampiric > 0) player.vampiric -= dt;
+  if (player.shotgun > 0) player.shotgun -= dt;
+  if (player.minigun > 0) player.minigun -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
   // Shooting - mouse aim
   const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
-  const baseRate = 0.14 / perkFireMult;
-  const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate; // rapid multiplies current rate
+  // Weapon powerup overrides
+  let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
+  if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.15; }
+  else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 360; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
+  const baseRate = wRate / perkFireMult;
+  const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
   shootCooldown -= dt;
   if (mouse.down && shootCooldown <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
-    const bspd = 450 * (1 + getPerkCount('bulletSpeed') * 0.2);
-    const baseBr = player.megablast > 0 ? 9 : 4;
+    const bspd = wSpeed * (1 + getPerkCount('bulletSpeed') * 0.2);
+    const baseBr = player.megablast > 0 ? wSize * 2 : wSize;
     const bRadius = baseBr * (1 + getPerkCount('bulletSize') * 0.25);
     const mega = player.megablast > 0;
     const extraShots = getPerkCount('multishot');
-    const baseCount = 1 + extraShots; // base bullets per shot
+    const baseCount = wCount + extraShots;
+
+    function fireBullet(angle) {
+      const fa = angle + (wSpreadArc > 0 && wCount <= 1 ? (Math.random() - 0.5) * wSpreadArc : 0);
+      bullets.push({
+        x: player.x + Math.cos(fa) * 16, y: player.y + Math.sin(fa) * 16,
+        r: bRadius, vx: Math.cos(fa) * bspd, vy: Math.sin(fa) * bspd, mega
+      });
+    }
+
     if (player.spread > 0) {
-      // Spread multiplies base bullet count across a fan
       const spreadCount = baseCount * 3;
-      const totalArc = 0.4; // radians total spread
+      const totalArc = 0.4 + wSpreadArc;
       for (let i = 0; i < spreadCount; i++) {
         const sa = a + (i / (spreadCount - 1) - 0.5) * totalArc;
-        bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: bRadius, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd, mega });
+        fireBullet(sa);
+      }
+    } else if (wCount > 1) {
+      // Shotgun-style fan
+      for (let i = 0; i < baseCount; i++) {
+        const sa = a + (i / (baseCount - 1) - 0.5) * wSpreadArc;
+        fireBullet(sa);
       }
     } else {
-      bullets.push({ x: player.x + Math.cos(a) * 16, y: player.y + Math.sin(a) * 16, r: bRadius, vx: Math.cos(a) * bspd, vy: Math.sin(a) * bspd, mega });
+      fireBullet(a);
       for (let ms = 0; ms < extraShots; ms++) {
         const offset = (ms + 1) * 0.08 * (ms % 2 === 0 ? 1 : -1);
-        const sa = a + offset;
-        bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: bRadius, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd, mega });
+        fireBullet(a + offset);
       }
     }
     shootCooldown = fireRate;
@@ -809,16 +843,26 @@ function update(dt) {
         }
       }
 
-      // Powerup drop (max 5 on field at once)
+      // Powerup / weapon drop (max 5 on field at once)
       const MAX_POWERUPS = 5;
       const dropBonus = getPerkCount('dropRate') * 0.15;
       const dropChance = e.type === 'boss' ? 1.0 : Math.min((e.type === 'small' ? 0.10 : 0.25) + dropBonus, 0.8);
       if (powerups.length < MAX_POWERUPS && Math.random() < dropChance) {
-        const types = Object.keys(POWERUP_DEFS);
-        const ptype = types[Math.floor(Math.random() * types.length)];
-        const def = POWERUP_DEFS[ptype];
-        powerups.push({ x: e.x, y: e.y, r: 10, type: ptype, color: def.color, label: def.label, life: 15, bobT: 0 });
+        // 25% chance to drop a weapon instead of a powerup
+        const isWeapon = Math.random() < 0.25;
+        if (isWeapon) {
+          const wtypes = Object.keys(WEAPON_DROP_DEFS);
+          const wtype = wtypes[Math.floor(Math.random() * wtypes.length)];
+          const wdef = WEAPON_DROP_DEFS[wtype];
+          powerups.push({ x: e.x, y: e.y, r: 10, type: wtype, color: wdef.color, label: wdef.label, life: 15, bobT: 0, isWeapon: true });
+        } else {
+          const types = Object.keys(POWERUP_DEFS);
+          const ptype = types[Math.floor(Math.random() * types.length)];
+          const def = POWERUP_DEFS[ptype];
+          powerups.push({ x: e.x, y: e.y, r: 10, type: ptype, color: def.color, label: def.label, life: 15, bobT: 0 });
+        }
         if (e.type === 'boss') {
+          const types = Object.keys(POWERUP_DEFS);
           const ptype2 = types[Math.floor(Math.random() * types.length)];
           const def2 = POWERUP_DEFS[ptype2];
           powerups.push({ x: e.x + 20, y: e.y + 15, r: 10, type: ptype2, color: def2.color, label: def2.label, life: 15, bobT: 0 });
@@ -843,10 +887,15 @@ function update(dt) {
       p.y += (pdy / pdist) * driftSpeed * dt;
     }
     if (circlesOverlap(player, player.r + 5, p, p.r)) {
-      applyPowerup(p.type);
+      if (p.isWeapon) {
+        applyWeaponDrop(p.type);
+      } else {
+        applyPowerup(p.type);
+      }
       spawnParticles(p.x, p.y, 8, p.color, 0.4);
       sfx('powerup');
-      spawnFloatingText(p.x, p.y + 15, POWERUP_DEFS[p.type].label, p.color, 14);
+      const lbl = p.isWeapon ? WEAPON_DROP_DEFS[p.type].label : POWERUP_DEFS[p.type].label;
+      spawnFloatingText(p.x, p.y + 15, lbl, p.color, 14);
       powerups.splice(i, 1);
     }
   }
@@ -1008,7 +1057,7 @@ pShieldMesh.visible = false;
 playerGroup.add(pShieldMesh);
 
 // Instanced particles
-const maxParticles3D = 2000;
+const maxParticles3D = 4000;
 const particleInstanced = new THREE.InstancedMesh(
   new THREE.BoxGeometry(1, 1, 1),
   new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -1039,29 +1088,49 @@ function draw3D(now) {
   // Enemies
   for (let e of enemies) {
     const mesh = getOrCreateMesh(e, () => {
-      const depth = e.type === 'boss' ? 20 : e.type === 'large' || e.type === 'spawner' ? 14 : e.type === 'runner' ? 5 : 8;
-      const segments = e.type === 'boss' ? 8 : e.type === 'runner' ? 3 : e.type === 'spawner' ? 10 : 6;
-      const geo = new THREE.CylinderGeometry(e.r * 0.8, e.r, depth, segments);
-      geo.rotateX(Math.PI / 2);
-      const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
-        emissiveIntensity: 0.2, metalness: 0.4, roughness: 0.5
-      });
+      let geo, mat;
+      if (e.type === 'runner') {
+        geo = new THREE.SphereGeometry(e.r, 16, 12);
+        mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
+          emissiveIntensity: 0.3, metalness: 0.6, roughness: 0.2
+        });
+      } else {
+        const depth = e.type === 'boss' ? 20 : e.type === 'large' || e.type === 'spawner' ? 14 : 8;
+        const segments = e.type === 'boss' ? 8 : e.type === 'spawner' ? 10 : 6;
+        geo = new THREE.CylinderGeometry(e.r * 0.8, e.r, depth, segments);
+        geo.rotateX(Math.PI / 2);
+        mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
+          emissiveIntensity: 0.2, metalness: 0.4, roughness: 0.5
+        });
+      }
       const m = new THREE.Mesh(geo, mat);
       // Eyes
       const eyeSize = e.type === 'boss' ? 5 : e.type === 'runner' ? 2 : 2.5;
       const eyeGeo = new THREE.SphereGeometry(eyeSize, 6, 6);
       const eyeMat = new THREE.MeshBasicMaterial({ color: e.type === 'boss' ? 0xffff00 : 0x111111 });
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      eye.position.set(e.r * 0.5, 0, depth / 2 + 1);
+      const eyeZ = e.type === 'runner' ? e.r * 0.7 : (e.type === 'boss' ? 11 : e.type === 'large' || e.type === 'spawner' ? 8 : 5);
+      eye.position.set(e.r * 0.5, 0, eyeZ);
       eye.name = 'eye';
       m.add(eye);
+      // Runner: speed trail rings
+      if (e.type === 'runner') {
+        for (let ri = 0; ri < 3; ri++) {
+          const trailGeo = new THREE.TorusGeometry(e.r + 4 + ri * 5, 0.6, 4, 16);
+          const trailMat = new THREE.MeshBasicMaterial({ color: 0x88ffff, transparent: true, opacity: 0.4 - ri * 0.12 });
+          const trail = new THREE.Mesh(trailGeo, trailMat);
+          trail.name = 'trail' + ri;
+          m.add(trail);
+        }
+      }
       if (e.type === 'boss') {
         const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
-        eye2.position.set(e.r * 0.3, e.r * 0.4, depth / 2 + 1);
+        eye2.position.set(e.r * 0.3, e.r * 0.4, eyeZ);
         m.add(eye2);
         const eye3 = new THREE.Mesh(eyeGeo, eyeMat);
-        eye3.position.set(e.r * 0.3, -e.r * 0.4, depth / 2 + 1);
+        eye3.position.set(e.r * 0.3, -e.r * 0.4, eyeZ);
         m.add(eye3);
       }
       // Electric: add zap ring
@@ -1106,6 +1175,19 @@ function draw3D(now) {
         spawnRing.rotation.z = now * 0.002 - faceAngle;
         const spawnPulse = e.spawnTimer < 1 ? 0.4 + 0.4 * Math.sin(now * 0.01) : 0.3;
         spawnRing.material.opacity = spawnPulse;
+      }
+    }
+    // Runner: animated speed trail rings
+    if (e.type === 'runner') {
+      for (let ri = 0; ri < 3; ri++) {
+        const trail = mesh.getObjectByName('trail' + ri);
+        if (trail) {
+          const phase = now * 0.008 + ri * 2.1;
+          const pulse = 0.6 + 0.4 * Math.sin(phase);
+          trail.scale.setScalar(pulse);
+          trail.material.opacity = (0.35 - ri * 0.1) * pulse;
+          trail.rotation.z = now * (0.004 + ri * 0.002) - faceAngle;
+        }
       }
     }
   }
@@ -1336,6 +1418,16 @@ function drawHUD(now) {
     // Level label
     ctx.fillStyle = '#af4'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
     ctx.fillText(`LV${playerLevel}`, px, py + barH + 12);
+
+    // Active weapon label
+    const hasWeapon = player.shotgun > 0 || player.minigun > 0;
+    if (hasWeapon) {
+      const wLabel = player.shotgun > 0 ? 'SHOTGUN' : 'MINIGUN';
+      const wColor = player.shotgun > 0 ? '#f84' : '#ff4';
+      ctx.fillStyle = wColor; ctx.font = 'bold 8px monospace';
+      ctx.fillText(wLabel, px, py + barH + 21);
+    }
+
     ctx.textAlign = 'left';
   }
 
@@ -1364,6 +1456,8 @@ function drawHUD(now) {
   if (player.overcharge > 0) activePowers.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
   if (player.vampiric > 0) activePowers.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
   if (player.megablast > 0) activePowers.push({ label: 'MEGA', color: '#ff4', t: player.megablast, max: 10 });
+  if (player.shotgun > 0) activePowers.push({ label: 'SHOTGUN', color: '#f84', t: player.shotgun, max: 10 });
+  if (player.minigun > 0) activePowers.push({ label: 'MINIGUN', color: '#ff4', t: player.minigun, max: 10 });
   for (let ap of activePowers) {
     ctx.fillStyle = ap.color; ctx.font = 'bold 11px monospace';
     ctx.fillText(ap.label, 10, hudY);
@@ -1515,6 +1609,7 @@ function drawHUD(now) {
         ctx.fillText(`(owned: ${stacks})`, cx + cardW / 2, cardY + cardH - 8);
       }
     }
+
     ctx.textAlign = 'left';
   }
 
@@ -1534,7 +1629,7 @@ function drawHUD(now) {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
     ctx.fillText('PAUSED', W / 2, H / 2 - 10);
     ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
-    ctx.fillText('Press ESC to resume', W / 2, H / 2 + 25);
+    ctx.fillText('Click or press ESC to resume', W / 2, H / 2 + 25);
     ctx.textAlign = 'left';
   }
 
@@ -1577,7 +1672,7 @@ function drawHUD(now) {
     const startPulse = 0.5 + 0.5 * Math.sin(now * 0.005);
     ctx.globalAlpha = startPulse;
     ctx.fillStyle = '#fff'; ctx.font = 'bold 22px monospace';
-    ctx.fillText('Click or press any key to start', W / 2, H / 2 + 130);
+    ctx.fillText('Click to start', W / 2, H / 2 + 130);
     ctx.globalAlpha = 1;
 
     // High score
