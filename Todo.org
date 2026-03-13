@@ -55,7 +55,7 @@ Todo
   3) [X] Add GRENADE weapon type. It lobs a grenade at the reticle. When it
      lands and explodes, it creates a ring of shrapnel in random directions.
   4) [X] Minigun should fire in a random spray pattern.
-  5) [ ] Shotgun should have high base projectile velocity.
+  5) [X] Shotgun should have high base projectile velocity.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
@@ -68,7 +68,7 @@ Todo
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
-  2) [ ] Powerups and weapon item drops should have a label underneath them.
+  2) [X] Powerups and weapon item drops should have a label underneath them.
 
 * PERF
   1) [ ] What is the main performance bottleneck?
