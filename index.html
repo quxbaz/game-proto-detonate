@@ -1334,7 +1334,7 @@ function draw3D(now) {
         return new THREE.ShapeGeometry(shape);
       }
       const polyGeo = makeIrregularPoly(sides);
-      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 1.0 }));
+      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 1.0 }));
       const coreGeo = makeIrregularPoly(sides);
       const core = new THREE.Mesh(coreGeo, explosionCoreMat.clone());
       core.name = 'core';
@@ -1346,7 +1346,7 @@ function draw3D(now) {
     mesh.scale.setScalar(Math.max(0.1, ex.r));
     mesh.rotation.z = ex.rot || 0;
     mesh.material.opacity = Math.max(alpha, 0.4);
-    mesh.material.color.setHSL(0.14 - alpha * 0.02, 1, 0.55 + alpha * 0.25);
+    mesh.material.color.setHSL(0.08 - alpha * 0.02, 1, 0.50 + alpha * 0.2);
     const core = mesh.getObjectByName('core');
     if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
     if (li < MAX_EXP_LIGHTS) {
@@ -1364,25 +1364,45 @@ function draw3D(now) {
     const blink = p.life < 3 && Math.floor(p.life * 6) % 2 === 0;
     const mesh = getOrCreateMesh(p, () => {
       const group = new THREE.Group();
-      // Core octahedron
-      const core = new THREE.Mesh(
-        new THREE.OctahedronGeometry(8, 0),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true })
-      );
-      core.name = 'pcore';
-      group.add(core);
-      // Pulsing ring
-      const ringGeo = new THREE.RingGeometry(14, 17, 24);
-      const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.6, side: THREE.DoubleSide });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.name = 'pring';
-      group.add(ring);
-      // Outer glow ring
-      const glowGeo = new THREE.RingGeometry(18, 24, 24);
-      const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.25, side: THREE.DoubleSide });
-      const glow = new THREE.Mesh(glowGeo, glowMat);
-      glow.name = 'pglow';
-      group.add(glow);
+      if (p.isWeapon) {
+        // Weapon: box core with diamond ring
+        const core = new THREE.Mesh(
+          new THREE.BoxGeometry(10, 10, 10),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true })
+        );
+        core.name = 'pcore';
+        group.add(core);
+        // Diamond ring (4-sided)
+        const ringGeo = new THREE.RingGeometry(16, 20, 4);
+        const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.name = 'pring';
+        group.add(ring);
+        // Outer diamond glow
+        const glowGeo = new THREE.RingGeometry(22, 28, 4);
+        const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.name = 'pglow';
+        group.add(glow);
+      } else {
+        // Powerup: octahedron core with round rings
+        const core = new THREE.Mesh(
+          new THREE.OctahedronGeometry(8, 0),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true })
+        );
+        core.name = 'pcore';
+        group.add(core);
+        const ringGeo = new THREE.RingGeometry(14, 17, 24);
+        const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.name = 'pring';
+        group.add(ring);
+        const glowGeo = new THREE.RingGeometry(18, 24, 24);
+        const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(p.color), transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.name = 'pglow';
+        group.add(glow);
+      }
       return group;
     });
     mesh.visible = !blink;
