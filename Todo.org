@@ -15,11 +15,11 @@ Todo
 * WEAPONS
 
 * POWERUPS
-  1) [ ] Powerups scale scale with the player's base stats when possible. For
+  1) [X] Powerups scale scale with the player's base stats when possible. For
      example, spread/multi should apply a multiplier to the current bullet
      quantity.
 
 * PERKS
 
 * VISUALS
-  1) Make explosions red in color.
+  1) [ ] Make explosions red in color.
