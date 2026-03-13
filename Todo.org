@@ -5,18 +5,18 @@ Todo
 * GAMEPLAY
 
 * ENEMY TYPES
-  1) [X] Add spawner enemy type. This particular unit is slow and tanky. It
+  1) [X] Add SPAWNER enemy type. This particular unit is slow and tanky. It
      spawns enemy units around itself until it's destroyed.
-  2) [X] Add runner enemy type. This unit is weak but moves more quickly than
+  2) [X] Add RUNNER enemy type. This unit is weak but moves more quickly than
      others.
-  3) [X] Add electric enemy type. This unit spawns an electric field around
+  3) [X] Add ELECTRIC enemy type. This unit spawns an electric field around
      itself every N interval that can damage the player.
 
 * WEAPONS
-  1) [ ] Add currency and weapon system. Enemies give gold on kill. Gold can be
+  1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
      used to purchase weapons. Weapons can be purchased or switched on the LEVEL
      UP menu.
-  1) [ ] Add new base weapon types.
+  2) [X] Add new base weapon types.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
