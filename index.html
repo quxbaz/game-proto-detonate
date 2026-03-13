@@ -62,7 +62,7 @@ scene.add(dirLight);
 const MAX_EXP_LIGHTS = 6;
 const expLights = [];
 for (let i = 0; i < MAX_EXP_LIGHTS; i++) {
-  const l = new THREE.PointLight(0xff8800, 0, 300);
+  const l = new THREE.PointLight(0xff3300, 0, 300);
   l.visible = false;
   scene.add(l);
   expLights.push(l);
@@ -231,7 +231,6 @@ const ALL_PERKS = [
   { id: 'chainRange',  label: 'Chain Reach',          color: '#ff8', desc: 'Chain explosions reach 25% further', icon: 'CHN' },
   { id: 'armor',       label: 'Tough',                color: '#aaa', desc: '20% chance to ignore damage', icon: 'ARM' },
   { id: 'multishot',   label: 'Double Tap',           color: '#f8f', desc: 'Fire an extra bullet', icon: 'x2' },
-  { id: 'vampiricPerm',label: 'Blood Drain',          color: '#f22', desc: '10% chance to heal on kill', icon: 'VMP' },
 ];
 
 function getPerkCount(id) {
@@ -297,7 +296,6 @@ const POWERUP_DEFS = {
   ricochet:  { label: 'RICOCHET',  color: '#f84', dur: 10 },
   homing:    { label: 'HOMING',    color: '#8ff', dur: 8 },
   overcharge:{ label: 'OVERCHARGE',color: '#fa0', dur: 10 },
-  vampiric:  { label: 'VAMPIRIC',  color: '#f44', dur: 12 },
 };
 
 const WEAPON_DROP_DEFS = {
@@ -317,7 +315,7 @@ function init() {
   player = {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, shield: 0,
-    ricochet: 0, homing: 0, overcharge: 0, vampiric: 0,
+    ricochet: 0, homing: 0, overcharge: 0,
     shotgun: 0, minigun: 0,
     detonationBonus: 1, angle: 0
   };
@@ -444,7 +442,6 @@ function applyPowerup(type) {
     case 'ricochet': player.ricochet = dur; break;
     case 'homing': player.homing = dur; break;
     case 'overcharge': player.overcharge = dur; break;
-    case 'vampiric': player.vampiric = dur; break;
   }
 }
 
@@ -584,7 +581,6 @@ function update(dt) {
   if (player.ricochet > 0) player.ricochet -= dt;
   if (player.homing > 0) player.homing -= dt;
   if (player.overcharge > 0) player.overcharge -= dt;
-  if (player.vampiric > 0) player.vampiric -= dt;
   if (player.shotgun > 0) player.shotgun -= dt;
   if (player.minigun > 0) player.minigun -= dt;
 
@@ -877,26 +873,6 @@ function update(dt) {
       }
       sfx('enemyDie');
       gainXp(e.score);
-
-      // Permanent vampiric perk
-      if (getPerkCount('vampiricPerm') > 0 && player.hp < player.maxHp) {
-        const chance = getPerkCount('vampiricPerm') * 0.1;
-        if (Math.random() < chance) {
-          player.hp = Math.min(player.hp + 1, player.maxHp);
-          spawnFloatingText(player.x, player.y + 25, '+1 HP', '#f22', 12);
-        }
-      }
-
-      // Vampiric heal (scales with vampiric perk)
-      if (player.vampiric > 0 && player.hp < player.maxHp) {
-        const baseHealChance = 0.3 + getPerkCount('vampiricPerm') * 0.15;
-        const healChance = e.type === 'boss' ? 1.0 : Math.min(baseHealChance, 0.9);
-        if (Math.random() < healChance) {
-          player.hp = Math.min(player.hp + 1, player.maxHp);
-          spawnFloatingText(player.x, player.y + 25, '+1 HP', '#f44', 14);
-          spawnParticles(player.x, player.y, 6, '#f44', 0.3);
-        }
-      }
 
       // Shrapnel
       if (e.explodedBy) {
@@ -1358,7 +1334,7 @@ function draw3D(now) {
         return new THREE.ShapeGeometry(shape);
       }
       const polyGeo = makeIrregularPoly(sides);
-      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 1.0 }));
+      const m = new THREE.Mesh(polyGeo, new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 1.0 }));
       const coreGeo = makeIrregularPoly(sides);
       const core = new THREE.Mesh(coreGeo, explosionCoreMat.clone());
       core.name = 'core';
@@ -1370,7 +1346,7 @@ function draw3D(now) {
     mesh.scale.setScalar(Math.max(0.1, ex.r));
     mesh.rotation.z = ex.rot || 0;
     mesh.material.opacity = Math.max(alpha, 0.4);
-    mesh.material.color.setHSL(0.14 - alpha * 0.02, 1, 0.55 + alpha * 0.25);
+    mesh.material.color.setHSL(0.02 - alpha * 0.01, 1, 0.45 + alpha * 0.2);
     const core = mesh.getObjectByName('core');
     if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
     if (li < MAX_EXP_LIGHTS) {
@@ -1586,7 +1562,6 @@ function drawHUD(now) {
     if (player.ricochet > 0) activeItems.push({ label: 'RICOCHET', color: '#f84', t: player.ricochet, max: 10 });
     if (player.homing > 0) activeItems.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
     if (player.overcharge > 0) activeItems.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
-    if (player.vampiric > 0) activeItems.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
 
     const barW = 150, barH = 22, gap = 10;
     const totalH = activeItems.length * barH + (activeItems.length - 1) * gap;
