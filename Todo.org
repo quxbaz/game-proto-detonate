@@ -9,6 +9,7 @@ Todo
      start with 10 detonations. Detonators spawn randomly around the map at N
      (random) interval. Detonators are a separate pool from powerups and
      weapons, so they're not affected by those particular limits.
+  2) [ ] Waves should last longer and each wave should have a theme.
 
 * ENEMY TYPES
   1) [X] Add SPAWNER enemy type. This particular unit is slow and tanky. It
@@ -22,6 +23,22 @@ Todo
      quickly. Similar to SPAWNER, but more extreme.
   5) [ ] Make HIVE unit bigger. It should be differentiated from other large
      enemy units.
+  6) [ ] Implement RARE enemy types. Rare units are like normal units but have
+     boosted stats. RARE is a modifier applied to an existing unit.
+     Differentiate the unit visually. Rare units can also have one or more perks
+     (see below).
+  7) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For
+     example:
+     - High durability
+     - Super high durability
+     - Extra speed
+     - Smooth (bullets and shrapnel cannot stick to this unit). Can only be
+       damaged by detonations.
+     - Splits itself in two every N interval (with existing hitpoints).
+     - Absorbs bullets and shrapnel around itself every N interval.
+     - High regen.
+     - Regen field in AoE around itself.
+     - Kamikaze. Does extra damage and destroys itself on contact with player.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
