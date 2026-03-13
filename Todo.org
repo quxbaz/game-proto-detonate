@@ -1,8 +1,14 @@
 Todo
 
 * HUD
+  1) [ ] Move weapon and powerup bar to near bottom of screen and make the bars
+     and text bigger for readability.
 
 * GAMEPLAY
+  1) [ ] Gameplay overhaul. Detonators should now be a finite resource. You
+     start with 10 detonations. Detonators spawn randomly around the map at N
+     (random) interval. Detonators are a separate pool from powerups and
+     weapons, so they're not affected by those particular limits.
 
 * ENEMY TYPES
   1) [X] Add SPAWNER enemy type. This particular unit is slow and tanky. It
