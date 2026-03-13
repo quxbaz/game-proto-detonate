@@ -52,9 +52,10 @@ Todo
      used to purchase weapons. Weapons can be purchased or switched on the LEVEL
      UP menu.
   2) [X] Add new base weapon types.
-  3) [ ] Add GRENADE weapon type. It lobs a grenade at the reticle. When it
+  3) [X] Add GRENADE weapon type. It lobs a grenade at the reticle. When it
      lands and explodes, it creates a ring of shrapnel in random directions.
   4) [X] Minigun should fire in a random spray pattern.
+  5) [ ] Shotgun should have high base projectile velocity.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
