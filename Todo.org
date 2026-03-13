@@ -67,6 +67,7 @@ Todo
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
+  2) [ ] Powerups and weapon item drops should have a label underneath them.
 
 * PERF
   1) [ ] What is the main performance bottleneck?
