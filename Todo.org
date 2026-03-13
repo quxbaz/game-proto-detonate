@@ -1,7 +1,7 @@
 Todo
 
 * HUD
-  1) [ ] Move weapon and powerup bar to near bottom of screen and make the bars
+  1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
 
 * GAMEPLAY
