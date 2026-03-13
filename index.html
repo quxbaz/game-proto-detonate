@@ -595,7 +595,7 @@ function update(dt) {
   const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
   // Weapon powerup overrides
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
-  if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.15; }
+  if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.35; }
   else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 360; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
