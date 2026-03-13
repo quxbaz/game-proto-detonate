@@ -479,6 +479,7 @@ function spawnEnemy(forceType) {
     spawner:  { r: 28, hp: 40, maxHp: 40, speed: 18,  color: '#a6a', score: 60 },
     electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35 },
     boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
+    hive:     { r: 36, hp: 100, maxHp: 100, speed: 0, color: '#6a4', score: 120 },
   };
   const d = { ...defs[type] };
   // Scale with wave difficulty
@@ -486,14 +487,32 @@ function spawnEnemy(forceType) {
   d.hp = Math.floor(d.hp * scaleFactor);
   d.maxHp = d.hp;
   d.score = Math.floor(d.score * scaleFactor);
-  // Spawn on arena edge
+  // Spawn location
   const angle = Math.random() * Math.PI * 2;
-  const spawnDist = ARENA_R + 30;
+  let sx, sy;
+  if (type === 'hive') {
+    // Spawn inside arena, away from player
+    const spawnR = 200 + Math.random() * (ARENA_R - 300);
+    sx = Math.cos(angle) * spawnR;
+    sy = Math.sin(angle) * spawnR;
+    // Push away if too close to player
+    const pdx = sx - player.x, pdy = sy - player.y;
+    if (Math.sqrt(pdx * pdx + pdy * pdy) < 200) {
+      sx = player.x + Math.cos(angle + Math.PI) * 300;
+      sy = player.y + Math.sin(angle + Math.PI) * 300;
+    }
+    const clamped = clampToArena(sx, sy, d.r);
+    sx = clamped.x; sy = clamped.y;
+  } else {
+    const spawnDist = ARENA_R + 30;
+    sx = Math.cos(angle) * spawnDist;
+    sy = Math.sin(angle) * spawnDist;
+  }
   const e = {
-    x: Math.cos(angle) * spawnDist, y: Math.sin(angle) * spawnDist,
+    x: sx, y: sy,
     ...d, type, stuck: [],
     wobble: Math.random() * Math.PI * 2,
-    spawnTimer: type === 'spawner' ? 3 + Math.random() * 2 : 0,
+    spawnTimer: type === 'spawner' ? 3 + Math.random() * 2 : type === 'hive' ? 1 + Math.random() : 0,
     zapTimer: type === 'electric' ? 2 + Math.random() : 0,
     zapActive: 0
   };
@@ -681,6 +700,11 @@ function update(dt) {
     if (waveNum % 20 === 0) {
       spawnBoss();
       spawnTimer = 4;
+    } else if (waveNum % 12 === 6 && waveNum > 10) {
+      spawnEnemy('hive');
+      waveAnnounce = { text: 'HIVE SPAWNED!', t: 0, dur: 2, color: '#6a4' };
+      sfx('chain', { depth: 2 });
+      spawnTimer = 3;
     } else {
       const count = Math.min(3 + Math.floor(wave / 2), 7);
       for (let i = 0; i < count; i++) spawnEnemy();
@@ -698,7 +722,7 @@ function update(dt) {
     // Move toward player with slight wobble
     const toPlayerX = player.x - e.x, toPlayerY = player.y - e.y;
     const tpDist = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY);
-    if (tpDist > 1) {
+    if (tpDist > 1 && e.speed > 0) {
       e.wobble += dt * 2;
       const wobbleAngle = Math.atan2(toPlayerY, toPlayerX) + Math.sin(e.wobble) * 0.3;
       e.x += Math.cos(wobbleAngle) * e.speed * dt;
@@ -724,6 +748,28 @@ function update(dt) {
           spawnParticles(child.x, child.y, 4, '#a6a', 0.3);
         }
         spawnParticles(e.x, e.y, 6, '#a6a', 0.4);
+        sfx('stick');
+      }
+    }
+
+    // Hive: rapidly spawns critters
+    if (e.type === 'hive' && e.hp > 0) {
+      e.spawnTimer -= dt;
+      if (e.spawnTimer <= 0) {
+        e.spawnTimer = 1.2 + Math.random() * 0.8;
+        const critterCount = 3 + Math.floor(Math.random() * 2);
+        for (let s = 0; s < critterCount; s++) {
+          const sa = Math.random() * Math.PI * 2;
+          const child = {
+            x: e.x + Math.cos(sa) * 45, y: e.y + Math.sin(sa) * 45,
+            r: 8, hp: 2, maxHp: 2, speed: 75, color: '#8c6', score: 3,
+            type: 'small', stuck: [], wobble: Math.random() * Math.PI * 2,
+            spawnTimer: 0, zapTimer: 0, zapActive: 0
+          };
+          enemies.push(child);
+          spawnParticles(child.x, child.y, 3, '#6a4', 0.2);
+        }
+        spawnParticles(e.x, e.y, 8, '#6a4', 0.5);
         sfx('stick');
       }
     }
@@ -1094,14 +1140,20 @@ function draw3D(now) {
   for (let e of enemies) {
     const mesh = getOrCreateMesh(e, () => {
       let geo, mat;
-      if (e.type === 'runner') {
+      if (e.type === 'hive') {
+        geo = new THREE.IcosahedronGeometry(e.r, 1);
+        mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
+          emissiveIntensity: 0.3, metalness: 0.3, roughness: 0.7
+        });
+      } else if (e.type === 'runner') {
         geo = new THREE.SphereGeometry(e.r, 16, 12);
         mat = new THREE.MeshStandardMaterial({
           color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
           emissiveIntensity: 0.3, metalness: 0.6, roughness: 0.2
         });
       } else {
-        const depth = e.type === 'boss' ? 20 : e.type === 'large' || e.type === 'spawner' ? 14 : 8;
+        const depth = e.type === 'boss' ? 20 : e.type === 'large' || e.type === 'spawner' ? 14 : e.type === 'hive' ? 18 : 8;
         const segments = e.type === 'boss' ? 8 : e.type === 'spawner' ? 10 : 6;
         geo = new THREE.CylinderGeometry(e.r * 0.8, e.r, depth, segments);
         geo.rotateX(Math.PI / 2);
@@ -1116,7 +1168,7 @@ function draw3D(now) {
       const eyeGeo = new THREE.SphereGeometry(eyeSize, 6, 6);
       const eyeMat = new THREE.MeshBasicMaterial({ color: e.type === 'boss' ? 0xffff00 : 0x111111 });
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      const eyeZ = e.type === 'runner' ? e.r * 0.7 : (e.type === 'boss' ? 11 : e.type === 'large' || e.type === 'spawner' ? 8 : 5);
+      const eyeZ = e.type === 'runner' ? e.r * 0.7 : e.type === 'hive' ? e.r * 0.6 : (e.type === 'boss' ? 11 : e.type === 'large' || e.type === 'spawner' ? 8 : 5);
       eye.position.set(e.r * 0.5, 0, eyeZ);
       eye.name = 'eye';
       m.add(eye);
@@ -1154,6 +1206,16 @@ function draw3D(now) {
         spawnRing.name = 'spawnRing';
         m.add(spawnRing);
       }
+      // Hive: pulsing rings
+      if (e.type === 'hive') {
+        for (let hi = 0; hi < 2; hi++) {
+          const hiveRingGeo = new THREE.TorusGeometry(e.r + 8 + hi * 12, 1.2, 6, 20);
+          const hiveRingMat = new THREE.MeshBasicMaterial({ color: 0x6aa644, transparent: true, opacity: 0.35 });
+          const hiveRing = new THREE.Mesh(hiveRingGeo, hiveRingMat);
+          hiveRing.name = 'hiveRing' + hi;
+          m.add(hiveRing);
+        }
+      }
       return m;
     });
     const faceAngle = Math.atan2(player.y - e.y, player.x - e.x);
@@ -1180,6 +1242,19 @@ function draw3D(now) {
         spawnRing.rotation.z = now * 0.002 - faceAngle;
         const spawnPulse = e.spawnTimer < 1 ? 0.4 + 0.4 * Math.sin(now * 0.01) : 0.3;
         spawnRing.material.opacity = spawnPulse;
+      }
+    }
+    // Hive: pulsing rings
+    if (e.type === 'hive') {
+      for (let hi = 0; hi < 2; hi++) {
+        const hiveRing = mesh.getObjectByName('hiveRing' + hi);
+        if (hiveRing) {
+          const phase = now * 0.005 + hi * 1.5;
+          const pulse = 0.7 + 0.3 * Math.sin(phase);
+          hiveRing.scale.setScalar(pulse);
+          hiveRing.material.opacity = (0.3 + (e.spawnTimer < 0.5 ? 0.3 : 0)) * pulse;
+          hiveRing.rotation.z = now * (0.001 + hi * 0.002);
+        }
       }
     }
     // Runner: animated speed trail rings
@@ -1424,43 +1499,6 @@ function drawHUD(now) {
     ctx.fillStyle = '#af4'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
     ctx.fillText(`LV${playerLevel}`, px, py + barH + 12);
 
-    // Active weapon label
-    const wLabel = player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : 'PISTOL';
-    const wColor = player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : '#4af';
-    ctx.fillStyle = wColor; ctx.font = 'bold 8px monospace';
-    ctx.fillText(wLabel, px, py + barH + 21);
-
-    // Active powerup icons under player
-    const activePU = [];
-    if (player.spread > 0) activePU.push({ label: 'SPR', color: '#4ff', t: player.spread, max: 12 });
-    if (player.rapid > 0) activePU.push({ label: 'RAP', color: '#f4f', t: player.rapid, max: 10 });
-    if (player.megablast > 0) activePU.push({ label: 'MEG', color: '#ff4', t: player.megablast, max: 10 });
-    if (player.shield > 0) activePU.push({ label: 'SHD', color: '#ff8', t: player.shield, max: 8 });
-    if (player.ricochet > 0) activePU.push({ label: 'RIC', color: '#f84', t: player.ricochet, max: 10 });
-    if (player.homing > 0) activePU.push({ label: 'HOM', color: '#8ff', t: player.homing, max: 8 });
-    if (player.overcharge > 0) activePU.push({ label: 'OVR', color: '#fa0', t: player.overcharge, max: 10 });
-    if (player.vampiric > 0) activePU.push({ label: 'VMP', color: '#f44', t: player.vampiric, max: 12 });
-    if (activePU.length > 0) {
-      const puW = 22, puGap = 2;
-      const totalPuW = activePU.length * puW + (activePU.length - 1) * puGap;
-      const puStartX = px - totalPuW / 2;
-      const puY = py + barH + 24;
-      for (let pi = 0; pi < activePU.length; pi++) {
-        const pu = activePU[pi];
-        const pux = puStartX + pi * (puW + puGap);
-        const frac = pu.t / pu.max;
-        // Background
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(pux, puY, puW, 10);
-        // Duration bar
-        ctx.fillStyle = pu.color;
-        ctx.fillRect(pux, puY, puW * frac, 10);
-        // Label
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 7px monospace';
-        ctx.fillText(pu.label, pux + puW / 2, puY + 8);
-      }
-    }
-
     ctx.textAlign = 'left';
   }
 
@@ -1478,25 +1516,56 @@ function drawHUD(now) {
     ctx.globalAlpha = 1;
   }
 
-  // Active powerups
-  let hudY = 54;
-  const activePowers = [];
-  if (player.spread > 0) activePowers.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
-  if (player.rapid > 0) activePowers.push({ label: 'RAPID', color: '#f4f', t: player.rapid, max: 10 });
-  if (player.shield > 0) activePowers.push({ label: 'SHIELD', color: '#ff8', t: player.shield, max: 8 });
-  if (player.ricochet > 0) activePowers.push({ label: 'RICOCHET', color: '#f84', t: player.ricochet, max: 10 });
-  if (player.homing > 0) activePowers.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
-  if (player.overcharge > 0) activePowers.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
-  if (player.vampiric > 0) activePowers.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
-  if (player.megablast > 0) activePowers.push({ label: 'MEGA', color: '#ff4', t: player.megablast, max: 10 });
-  if (player.shotgun > 0) activePowers.push({ label: 'SHOTGUN', color: '#f84', t: player.shotgun, max: 10 });
-  if (player.minigun > 0) activePowers.push({ label: 'MINIGUN', color: '#ff4', t: player.minigun, max: 10 });
-  for (let ap of activePowers) {
-    ctx.fillStyle = ap.color; ctx.font = 'bold 11px monospace';
-    ctx.fillText(ap.label, 10, hudY);
-    ctx.fillStyle = '#333'; ctx.fillRect(65, hudY - 8, 50, 6);
-    ctx.fillStyle = ap.color; ctx.fillRect(65, hudY - 8, 50 * (ap.t / ap.max), 6);
-    hudY += 14;
+  // Weapon & powerup bar (bottom center)
+  {
+    const activeItems = [];
+    // Weapon first
+    const wLabel = player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : 'PISTOL';
+    const wColor = player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : '#4af';
+    const wTime = player.shotgun > 0 ? player.shotgun : player.minigun > 0 ? player.minigun : -1;
+    activeItems.push({ label: wLabel, color: wColor, t: wTime, max: 10, isWeapon: true });
+    // Powerups
+    if (player.spread > 0) activeItems.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
+    if (player.rapid > 0) activeItems.push({ label: 'RAPID', color: '#f4f', t: player.rapid, max: 10 });
+    if (player.megablast > 0) activeItems.push({ label: 'MEGA', color: '#ff4', t: player.megablast, max: 10 });
+    if (player.shield > 0) activeItems.push({ label: 'SHIELD', color: '#ff8', t: player.shield, max: 8 });
+    if (player.ricochet > 0) activeItems.push({ label: 'RICOCHET', color: '#f84', t: player.ricochet, max: 10 });
+    if (player.homing > 0) activeItems.push({ label: 'HOMING', color: '#8ff', t: player.homing, max: 8 });
+    if (player.overcharge > 0) activeItems.push({ label: 'OVERCHARGE', color: '#fa0', t: player.overcharge, max: 10 });
+    if (player.vampiric > 0) activeItems.push({ label: 'VAMPIRIC', color: '#f44', t: player.vampiric, max: 12 });
+
+    const barW = 150, barH = 22, gap = 10;
+    const totalH = activeItems.length * barH + (activeItems.length - 1) * gap;
+    const bx = W / 2 - barW / 2;
+    const startY = H - 75 - totalH;
+
+    for (let i = 0; i < activeItems.length; i++) {
+      const item = activeItems[i];
+      const by = startY + i * (barH + gap);
+
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(bx, by, barW, barH);
+
+      // Duration fill (pistol has no timer)
+      if (item.t > 0) {
+        const frac = item.t / item.max;
+        ctx.fillStyle = item.color;
+        ctx.globalAlpha = 0.35;
+        ctx.fillRect(bx, by, barW * frac, barH);
+        ctx.globalAlpha = 1;
+      }
+
+      // Border
+      ctx.strokeStyle = item.color;
+      ctx.lineWidth = item.isWeapon ? 2 : 1;
+      ctx.strokeRect(bx, by, barW, barH);
+
+      // Label
+      ctx.fillStyle = item.color; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(item.label, bx + barW / 2, by + 16);
+    }
+    ctx.textAlign = 'left';
   }
 
   // Stuck count & detonation tier
@@ -1566,7 +1635,7 @@ function drawHUD(now) {
 
   // Acquired perks (small icons)
   if (perksPicked.length > 0) {
-    let hudPerkY = hudY + 4;
+    let hudPerkY = 40;
     ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';
     ctx.fillText('PERKS:', 10, hudPerkY);
     let px = 52;
