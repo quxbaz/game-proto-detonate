@@ -64,6 +64,7 @@ Todo
 
 * VISUALS
   1) [ ] Make explosions red in color.
+  2) [ ] Make weapon items distinct from powerups.
 
 * PERF
   1) [ ] What is the main performance bottleneck?
