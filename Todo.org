@@ -11,6 +11,10 @@ Todo
      weapons, so they're not affected by those particular limits.
   2) [ ] Waves should last longer and each wave should have a theme.
 
+* PLAYER
+  1) [ ] Level up window is abrupt. Show a level up visual like a golden glow
+     around the player then a few seconds later show the screen.
+
 * ENEMY TYPES
   1) [X] Add SPAWNER enemy type. This particular unit is slow and tanky. It
      spawns enemy units around itself until it's destroyed.
