@@ -206,7 +206,7 @@ function cleanupMeshes() {
 }
 
 // ============ GAME STATE ============
-let player, bullets, enemies, explosions, particles, powerups;
+let player, bullets, enemies, explosions, particles, powerups, grenades;
 let floatingTexts, waveAnnounce;
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
@@ -301,6 +301,7 @@ const POWERUP_DEFS = {
 const WEAPON_DROP_DEFS = {
   shotgun:   { label: 'SHOTGUN',  color: '#f84', dur: 10 },
   minigun:   { label: 'MINIGUN',  color: '#ff4', dur: 10 },
+  grenade:   { label: 'GRENADE',  color: '#4f4', dur: 12 },
 };
 
 function init() {
@@ -316,10 +317,11 @@ function init() {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0,
-    shotgun: 0, minigun: 0,
+    shotgun: 0, minigun: 0, grenade: 0,
     detonationBonus: 1, angle: 0
   };
   bullets = [];
+  grenades = [];
   enemies = [];
   explosions = [];
   particles = [];
@@ -450,7 +452,7 @@ function applyWeaponDrop(type) {
   const durMult = 1 + getPerkCount('powerDur') * 0.3;
   const dur = def.dur * durMult;
   // Weapons are exclusive: picking one replaces the other
-  player.shotgun = 0; player.minigun = 0;
+  player.shotgun = 0; player.minigun = 0; player.grenade = 0;
   player[type] = dur;
 }
 
@@ -583,6 +585,7 @@ function update(dt) {
   if (player.overcharge > 0) player.overcharge -= dt;
   if (player.shotgun > 0) player.shotgun -= dt;
   if (player.minigun > 0) player.minigun -= dt;
+  if (player.grenade > 0) player.grenade -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
@@ -591,12 +594,28 @@ function update(dt) {
   const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
   // Weapon powerup overrides
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
-  if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.35; }
+  if (player.grenade > 0) { wRate = 0.7; }
+  else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.35; }
   else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 360; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
   shootCooldown -= dt;
-  if (mouse.down && shootCooldown <= 0 && bullets.length < MAX_BULLETS) {
+  if (mouse.down && shootCooldown <= 0 && player.grenade > 0) {
+    // Lob grenade toward reticle
+    const mouseWorldX = player.x + (mouse.sx - W / 2);
+    const mouseWorldY = player.y - (mouse.sy - H / 2);
+    const gdx = mouseWorldX - player.x, gdy = mouseWorldY - player.y;
+    const gDist = Math.sqrt(gdx * gdx + gdy * gdy);
+    const travelTime = Math.max(0.15, Math.min(gDist / 600, 0.6));
+    grenades.push({
+      x: player.x, y: player.y,
+      sx: player.x, sy: player.y,
+      tx: mouseWorldX, ty: mouseWorldY,
+      t: 0, dur: travelTime, r: 6, z: 0
+    });
+    shootCooldown = wRate / perkFireMult;
+    sfx('shoot');
+  } else if (mouse.down && shootCooldown <= 0 && player.grenade <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
     const bspd = wSpeed * (1 + getPerkCount('bulletSpeed') * 0.2);
     const baseBr = player.megablast > 0 ? wSize * 2 : wSize;
@@ -637,6 +656,43 @@ function update(dt) {
     sfx('shoot');
   }
 
+  // Grenades
+  for (let i = grenades.length - 1; i >= 0; i--) {
+    const g = grenades[i];
+    g.t += dt;
+    const frac = Math.min(g.t / g.dur, 1);
+    // Lerp position
+    g.x = g.sx + (g.tx - g.sx) * frac;
+    g.y = g.sy + (g.ty - g.sy) * frac;
+    // Arc height for visual
+    g.z = Math.sin(frac * Math.PI) * 40;
+    if (frac >= 1) {
+      // Explode: shrapnel ring
+      const shrapnelCount = 24 + Math.floor(getPerkCount('shrapnel') * 6);
+      const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
+      for (let s = 0; s < shrapnelCount && bullets.length < MAX_BULLETS; s++) {
+        const angle = (Math.PI * 2 / shrapnelCount) * s + (Math.random() - 0.5) * 0.4;
+        const spd2 = 160 + Math.random() * 140;
+        bullets.push({ x: g.x, y: g.y, r: 3, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true });
+      }
+      // Explosion visual
+      const sides = 5 + Math.floor(Math.random() * 4);
+      const rot = Math.random() * Math.PI * 2;
+      explosions.push({ x: g.x, y: g.y, r: 0, maxR: 50 * blastPerk, t: 0, dur: 0.4, sides, rot });
+      // Damage nearby enemies
+      for (let e of enemies) {
+        if (dist(g, e) < 60 * blastPerk + e.r) {
+          e.stuck.push({ ox: (Math.random() - 0.5) * e.r, oy: (Math.random() - 0.5) * e.r, pulseT: 0 });
+        }
+      }
+      spawnParticles(g.x, g.y, 20, '#4f4', 0.5);
+      spawnParticles(g.x, g.y, 10, '#ff0', 0.4);
+      sfx('explode', { intensity: 3 });
+      shakeTimer = 0.2; shakeIntensity = 6;
+      grenades.splice(i, 1);
+    }
+  }
+
   // Detonate
   if ((keys['KeyX'] || keys['ShiftLeft'] || keys['ShiftRight']) && !detonating) {
     detonating = true;
@@ -667,6 +723,13 @@ function update(dt) {
         b.vy = Math.sin(newAngle) * spd;
       }
     }
+    // Grenade shrapnel decelerates
+    if (b.grenadeShrapnel) {
+      const drag = Math.pow(0.3, dt);
+      b.vx *= drag; b.vy *= drag;
+      // Remove when nearly stopped
+      if (b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
+    }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     // Out of arena
@@ -675,6 +738,13 @@ function update(dt) {
     let hit = false;
     for (let e of enemies) {
       if (circlesOverlap(b, b.r, e, e.r)) {
+        // Grenade shrapnel deals direct damage instead of sticking
+        if (b.grenadeShrapnel) {
+          e.hp -= 2;
+          e.explodedBy = true;
+          spawnParticles(b.x, b.y, 3, '#f44', 0.2);
+          bullets.splice(i, 1); hit = true; break;
+        }
         e.stuck.push({ ox: b.x - e.x, oy: b.y - e.y, pulseT: 0 });
         spawnParticles(b.x, b.y, 3, '#ff0', 0.2);
         sfx('stick');
@@ -983,7 +1053,13 @@ function triggerDetonation() {
   for (let e of enemies) {
     if (e.stuck.length > 0) { toDetonate.push(e); totalStuckCount += e.stuck.length; }
   }
-  if (toDetonate.length === 0) return;
+  // Collect grenade shrapnel for independent detonation
+  let grenadeShrapnelBullets = [];
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    if (bullets[i].grenadeShrapnel) grenadeShrapnelBullets.push(i);
+  }
+
+  if (toDetonate.length === 0 && grenadeShrapnelBullets.length === 0) return;
 
   let stuckBonus = 1, bonusLabel = '';
   if (totalStuckCount >= 30) { stuckBonus = 8; bonusLabel = 'APOCALYPSE'; }
@@ -1011,7 +1087,40 @@ function triggerDetonation() {
     spawnFloatingText(avgX, avgY + 30, `DETONATE +${flatBonus}`, col, stuckBonus > 1 ? 20 : 14);
   }
 
-  chainExplode(toDetonate, 0, stuckBonus);
+  // Detonate grenade shrapnel in the field
+  const megaMult = player.megablast > 0 ? 2 : 1;
+  const overMult = player.overcharge > 0 ? 1.8 : 1;
+  const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
+  const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
+  for (let idx of grenadeShrapnelBullets) {
+    const b = bullets[idx];
+    if (!b) continue;
+    const r = 40 * megaMult * overMult;
+    const sides = 5 + Math.floor(Math.random() * 4);
+    const rot = Math.random() * Math.PI * 2;
+    explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides, rot });
+    spawnParticles(b.x, b.y, 6, '#f44', 0.4);
+    spawnParticles(b.x, b.y, 4, '#f80', 0.5);
+    // Damage nearby enemies
+    for (let e of enemies) {
+      if (dist(b, e) < gsRadius + e.r) {
+        e.hp -= 3 * stuckBonus;
+        e.explodedBy = true;
+      }
+    }
+    // Chain: pull nearby stuck enemies into detonation
+    for (let e of enemies) {
+      if (e.stuck.length > 0 && !toDetonate.includes(e) && dist(b, e) < gsRadius * 1.5) {
+        toDetonate.push(e);
+      }
+    }
+  }
+  // Remove grenade shrapnel bullets (reverse order to preserve indices)
+  for (let idx of grenadeShrapnelBullets) {
+    if (idx < bullets.length) bullets.splice(idx, 1);
+  }
+
+  if (toDetonate.length > 0) chainExplode(toDetonate, 0, stuckBonus);
 }
 
 function chainExplode(initialEnemies, depth, stuckBonus) {
@@ -1276,6 +1385,22 @@ function draw3D(now) {
     }
   }
 
+  // Grenades
+  for (let g of grenades) {
+    const mesh = getOrCreateMesh(g, () => {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+      group.add(body);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1, 4, 8), new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.5 }));
+      ring.name = 'gring';
+      group.add(ring);
+      return group;
+    });
+    mesh.position.set(g.x, g.y, g.z || 0);
+    const gring = mesh.getObjectByName('gring');
+    if (gring) { gring.rotation.z = now * 0.01; gring.rotation.x = now * 0.007; }
+  }
+
   // Bullets
   for (let b of bullets) {
     const mesh = getOrCreateMesh(b, () => {
@@ -1301,7 +1426,11 @@ function draw3D(now) {
     if (b.shrapnel) {
       const pulse = 0.6 + 0.4 * Math.sin(now * 0.012 + b.x);
       mesh.scale.setScalar(0.8 + pulse * 0.3);
-      mesh.material.color.setRGB(1, 0.4 + pulse * 0.4, pulse * 0.1);
+      if (b.grenadeShrapnel) {
+        mesh.material.color.setRGB(1, 0.15 + pulse * 0.15, pulse * 0.05);
+      } else {
+        mesh.material.color.setRGB(1, 0.4 + pulse * 0.4, pulse * 0.1);
+      }
       const ring = mesh.getObjectByName('ring');
       if (ring) { ring.rotation.x = now * 0.005; ring.rotation.y = now * 0.003; ring.material.opacity = 0.3 + pulse * 0.3; }
     }
@@ -1570,9 +1699,9 @@ function drawHUD(now) {
   {
     const activeItems = [];
     // Weapon first
-    const wLabel = player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : 'PISTOL';
-    const wColor = player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : '#4af';
-    const wTime = player.shotgun > 0 ? player.shotgun : player.minigun > 0 ? player.minigun : -1;
+    const wLabel = player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : player.grenade > 0 ? 'GRENADE' : 'PISTOL';
+    const wColor = player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : player.grenade > 0 ? '#4f4' : '#4af';
+    const wTime = player.shotgun > 0 ? player.shotgun : player.minigun > 0 ? player.minigun : player.grenade > 0 ? player.grenade : -1;
     activeItems.push({ label: wLabel, color: wColor, t: wTime, max: 10, isWeapon: true });
     // Powerups
     if (player.spread > 0) activeItems.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
