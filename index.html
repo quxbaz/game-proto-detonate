@@ -525,8 +525,9 @@ function update(dt) {
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
   // Shooting - mouse aim
-  const baseRate = player.rapid > 0 ? 0.06 : 0.14;
-  const fireRate = baseRate / (1 + getPerkCount('fireRate') * 0.15);
+  const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
+  const baseRate = 0.14 / perkFireMult;
+  const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate; // rapid multiplies current rate
   shootCooldown -= dt;
   if (mouse.down && shootCooldown <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
@@ -535,9 +536,13 @@ function update(dt) {
     const bRadius = baseBr * (1 + getPerkCount('bulletSize') * 0.25);
     const mega = player.megablast > 0;
     const extraShots = getPerkCount('multishot');
+    const baseCount = 1 + extraShots; // base bullets per shot
     if (player.spread > 0) {
-      for (let i = -2; i <= 2; i++) {
-        const sa = a + i * 0.1;
+      // Spread multiplies base bullet count across a fan
+      const spreadCount = baseCount * 3;
+      const totalArc = 0.4; // radians total spread
+      for (let i = 0; i < spreadCount; i++) {
+        const sa = a + (i / (spreadCount - 1) - 0.5) * totalArc;
         bullets.push({ x: player.x + Math.cos(sa) * 16, y: player.y + Math.sin(sa) * 16, r: bRadius, vx: Math.cos(sa) * bspd, vy: Math.sin(sa) * bspd, mega });
       }
     } else {
@@ -716,9 +721,10 @@ function update(dt) {
         }
       }
 
-      // Vampiric heal
+      // Vampiric heal (scales with vampiric perk)
       if (player.vampiric > 0 && player.hp < player.maxHp) {
-        const healChance = e.type === 'boss' ? 1.0 : 0.3;
+        const baseHealChance = 0.3 + getPerkCount('vampiricPerm') * 0.15;
+        const healChance = e.type === 'boss' ? 1.0 : Math.min(baseHealChance, 0.9);
         if (Math.random() < healChance) {
           player.hp = Math.min(player.hp + 1, player.maxHp);
           spawnFloatingText(player.x, player.y + 25, '+1 HP', '#f44', 14);
