@@ -27,11 +27,12 @@ Todo
      quickly. Similar to SPAWNER, but more extreme.
   5) [ ] Make HIVE unit bigger. It should be differentiated from other large
      enemy units.
-  6) [ ] Implement RARE enemy types. Rare units are like normal units but have
+  6) [ ] HIVE should be much tankier. It's too easy to kill.
+  7) [ ] Implement RARE enemy types. Rare units are like normal units but have
      boosted stats. RARE is a modifier applied to an existing unit.
      Differentiate the unit visually. Rare units can also have one or more perks
      (see below).
-  7) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For
+  8) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For
      example:
      - High durability
      - Super high durability
