@@ -207,13 +207,14 @@ function cleanupMeshes() {
 
 // ============ GAME STATE ============
 let player, bullets, enemies, explosions, particles, powerups;
-let enemyBullets, floatingTexts, waveAnnounce;
+let floatingTexts, waveAnnounce;
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
 let xp, playerLevel, xpToNext, perkChoices, perksPicked;
 let keys = {};
 let mouse = { sx: W / 2, sy: H / 2, down: false };
 let detonating = false;
+let startScreen = true;
 
 // ============ PERK SYSTEM ============
 const ALL_PERKS = [
@@ -225,7 +226,6 @@ const ALL_PERKS = [
   { id: 'shrapnel',    label: 'Extra Shrapnel',       color: '#f84', desc: '+50% shrapnel on chain kills', icon: 'SHR' },
   { id: 'powerDur',    label: 'Lasting Power',        color: '#8ff', desc: 'Powerups last 30% longer', icon: 'DUR' },
   { id: 'dropRate',    label: 'Lucky',                color: '#4f4', desc: 'Powerup drop rate +15%', icon: 'LCK' },
-  { id: 'dashCdr',     label: 'Quick Dash',           color: '#44f', desc: 'Dash cooldown -25%', icon: 'DSH' },
   { id: 'bulletSpeed', label: 'Velocity',             color: '#aaf', desc: 'Bullets travel 20% faster', icon: 'VEL' },
   { id: 'chainRange',  label: 'Chain Reach',          color: '#ff8', desc: 'Chain explosions reach 25% further', icon: 'CHN' },
   { id: 'armor',       label: 'Tough',                color: '#aaa', desc: '20% chance to ignore damage', icon: 'ARM' },
@@ -307,12 +307,10 @@ function init() {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0, vampiric: 0,
-    dashCooldown: 0, dashTimer: 0, dashVx: 0, dashVy: 0,
     detonationBonus: 1, angle: 0
   };
   bullets = [];
   enemies = [];
-  enemyBullets = [];
   explosions = [];
   particles = [];
   powerups = [];
@@ -342,6 +340,7 @@ init();
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
+  if (startScreen) { startScreen = false; init(); return; }
   if (e.code === 'KeyR' && gameOver) init();
   // Perk selection with 1/2/3
   if (perkChoices) {
@@ -357,6 +356,7 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mousedown', e => {
   if (e.button === 0) {
+    if (startScreen) { startScreen = false; init(); return; }
     if (perkChoices) {
       // Check if clicking a perk card
       const cardW = 200, cardH = 140, gap = 30;
@@ -445,8 +445,8 @@ function endGame() {
 function spawnEnemy(forceType) {
   let type = forceType;
   if (!type) {
-    const types = ['small', 'medium', 'large', 'shooter'];
-    const weights = [0.4, 0.3, 0.15, 0.15];
+    const types = ['small', 'medium', 'large'];
+    const weights = [0.45, 0.35, 0.2];
     let r = Math.random(), cumul = 0;
     type = 'small';
     for (let i = 0; i < types.length; i++) {
@@ -458,7 +458,6 @@ function spawnEnemy(forceType) {
     small:   { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10 },
     medium:  { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25 },
     large:   { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50 },
-    shooter: { r: 14, hp: 8,  maxHp: 8,  speed: 40,  color: '#c4f', score: 30 },
     boss:    { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
   };
   const d = defs[type];
@@ -468,7 +467,6 @@ function spawnEnemy(forceType) {
   const e = {
     x: Math.cos(angle) * spawnDist, y: Math.sin(angle) * spawnDist,
     ...d, type, stuck: [],
-    shootTimer: type === 'shooter' ? 1 + Math.random() : (type === 'boss' ? 0.5 : 99999),
     wobble: Math.random() * Math.PI * 2
   };
   enemies.push(e);
@@ -485,6 +483,7 @@ function spawnBoss() {
 
 // ============ UPDATE ============
 function update(dt) {
+  if (startScreen) return;
   if (gameOver) return;
   if (perkChoices) return; // Paused for perk selection
 
@@ -496,14 +495,7 @@ function update(dt) {
 
   // Movement
   let spd = 180 * (1 + getPerkCount('moveSpeed') * 0.12) * dt;
-  if (player.dashCooldown > 0) player.dashCooldown -= dt;
-  if (player.dashTimer > 0) {
-    player.dashTimer -= dt;
-    player.x += player.dashVx * dt;
-    player.y += player.dashVy * dt;
-    player.invuln = Math.max(player.invuln, 0.1);
-    if (Math.random() < 0.5) spawnParticles(player.x, player.y, 1, '#4af', 0.3);
-  } else {
+  {
     let dx = 0, dy = 0;
     if (keys['KeyW'] || keys['ArrowUp']) dy += 1;
     if (keys['KeyS'] || keys['ArrowDown']) dy -= 1;
@@ -557,22 +549,6 @@ function update(dt) {
       }
     }
     shootCooldown = fireRate;
-    sfx('shoot');
-  }
-
-  // Dash
-  if ((keys['Space'] || keys['KeyC']) && player.dashCooldown <= 0 && player.dashTimer <= 0) {
-    let dx = 0, dy = 0;
-    if (keys['KeyW'] || keys['ArrowUp']) dy = 1;
-    if (keys['KeyS'] || keys['ArrowDown']) dy = -1;
-    if (keys['KeyA'] || keys['ArrowLeft']) dx = -1;
-    if (keys['KeyD'] || keys['ArrowRight']) dx = 1;
-    if (dx === 0 && dy === 0) { dx = Math.cos(player.angle); dy = Math.sin(player.angle); }
-    const len = Math.sqrt(dx * dx + dy * dy);
-    player.dashVx = (dx / len) * 500;
-    player.dashVy = (dy / len) * 500;
-    player.dashTimer = 0.12;
-    player.dashCooldown = 0.8 * Math.pow(0.75, getPerkCount('dashCdr'));
     sfx('shoot');
   }
 
@@ -645,34 +621,6 @@ function update(dt) {
     if (hit) continue;
   }
 
-  // Enemy bullets
-  for (let i = enemyBullets.length - 1; i >= 0; i--) {
-    const b = enemyBullets[i];
-    b.x += b.vx * dt; b.y += b.vy * dt;
-    b.life -= dt;
-    if (b.life <= 0 || b.x * b.x + b.y * b.y > (ARENA_R + 50) * (ARENA_R + 50)) {
-      enemyBullets.splice(i, 1); continue;
-    }
-    if (player.invuln <= 0 && player.dashTimer <= 0 && circlesOverlap(b, b.r, player, player.r)) {
-      if (player.shield > 0) {
-        player.shield = 0;
-        spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
-        spawnFloatingText(player.x, player.y + 20, 'BLOCKED!', '#ff8', 14);
-      } else if (getPerkCount('armor') > 0 && Math.random() < getPerkCount('armor') * 0.2) {
-        spawnFloatingText(player.x, player.y + 20, 'DEFLECT!', '#aaa', 14);
-        spawnParticles(player.x, player.y, 4, '#aaa', 0.2);
-      } else {
-        player.hp--;
-        player.invuln = 1.5;
-        shakeTimer = 0.3; shakeIntensity = 6;
-        spawnParticles(player.x, player.y, 10, '#f00', 0.5);
-        sfx('hit');
-        if (player.hp <= 0) endGame();
-      }
-      enemyBullets.splice(i, 1);
-    }
-  }
-
   // Enemy spawning
   spawnTimer -= dt;
   if (spawnTimer <= 0) {
@@ -705,31 +653,12 @@ function update(dt) {
     }
     for (let s of e.stuck) s.pulseT += dt;
 
-    // Enemy shooting
-    if (e.type === 'shooter' || e.type === 'boss') {
-      e.shootTimer -= dt;
-      if (e.shootTimer <= 0 && tpDist < ARENA_R) {
-        const angle = Math.atan2(player.y - e.y, player.x - e.x);
-        const bspd = e.type === 'boss' ? 180 : 140;
-        if (e.type === 'boss') {
-          for (let a = -1; a <= 1; a++) {
-            const ang = angle + a * 0.3;
-            enemyBullets.push({ x: e.x, y: e.y, r: 4, vx: Math.cos(ang) * bspd, vy: Math.sin(ang) * bspd, life: 4, color: '#f66' });
-          }
-          e.shootTimer = 1.2;
-        } else {
-          enemyBullets.push({ x: e.x, y: e.y, r: 3, vx: Math.cos(angle) * bspd, vy: Math.sin(angle) * bspd, life: 3, color: '#c4f' });
-          e.shootTimer = 1.5 + Math.random() * 0.5;
-        }
-      }
-    }
-
     // Clamp to arena
     const ec = clampToArena(e.x, e.y, e.r);
     e.x = ec.x; e.y = ec.y;
 
     // Collision with player
-    if (player.invuln <= 0 && player.dashTimer <= 0 && circlesOverlap(player, player.r, e, e.r)) {
+    if (player.invuln <= 0 && circlesOverlap(player, player.r, e, e.r)) {
       if (player.shield > 0) {
         player.shield = 0;
         spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
@@ -1030,7 +959,7 @@ function draw3D(now) {
 
   // Player
   const vis = player.invuln <= 0 || Math.floor(player.invuln * 10) % 2 === 0;
-  playerGroup.visible = vis && !gameOver;
+  playerGroup.visible = vis && !gameOver && !startScreen;
   playerGroup.position.set(player.x, player.y, 0);
   playerGroup.rotation.z = player.angle;
   pShieldMesh.visible = player.shield > 0;
@@ -1123,12 +1052,6 @@ function draw3D(now) {
         mglow.material.opacity = 0.2 + pulse * 0.15;
       }
     }
-  }
-
-  // Enemy bullets
-  for (let b of enemyBullets) {
-    const mesh = getOrCreateMesh(b, () => new THREE.Mesh(new THREE.SphereGeometry(b.r, 6, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(b.color || '#f66') })));
-    mesh.position.set(b.x, b.y, 4);
   }
 
   // Explosions
@@ -1328,17 +1251,6 @@ function drawHUD(now) {
     hudY += 14;
   }
 
-  // Dash cooldown
-  if (player.dashCooldown > 0) {
-    ctx.fillStyle = '#555'; ctx.font = '11px monospace';
-    ctx.fillText('DASH', W - 70, H - 30);
-    ctx.fillStyle = '#333'; ctx.fillRect(W - 70, H - 26, 50, 4);
-    ctx.fillStyle = '#4af'; ctx.fillRect(W - 70, H - 26, 50 * (1 - player.dashCooldown / 0.8), 4);
-  } else {
-    ctx.fillStyle = '#4af'; ctx.font = '11px monospace';
-    ctx.fillText('DASH [C]', W - 70, H - 30);
-  }
-
   // Stuck count & detonation tier
   let totalStuck = 0;
   for (let e of enemies) totalStuck += e.stuck.length;
@@ -1367,7 +1279,7 @@ function drawHUD(now) {
 
   // Controls
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px monospace';
-  ctx.fillText('WASD: Move | Mouse: Aim & Shoot | Right-Click/X: Detonate | Space/C: Dash | R: Restart', W / 2 - 300, H - 10);
+  ctx.fillText('WASD: Move | Mouse: Aim & Shoot | Right-Click/X: Detonate | R: Restart', W / 2 - 250, H - 10);
 
   // XP bar
   const xpBarW = 160, xpBarH = 6;
@@ -1470,6 +1382,58 @@ function drawHUD(now) {
   ctx.beginPath(); ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 15, cy); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy - 6); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 15); ctx.stroke();
+
+  // Start screen
+  if (startScreen) {
+    ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+
+    // Title
+    const titlePulse = 0.85 + 0.15 * Math.sin(now * 0.003);
+    ctx.globalAlpha = titlePulse;
+    ctx.fillStyle = '#ff4'; ctx.font = 'bold 52px monospace';
+    ctx.fillText('CHAIN REACTION', W / 2, H / 2 - 120);
+    ctx.fillStyle = '#f80'; ctx.font = 'bold 28px monospace';
+    ctx.fillText('ARENA', W / 2, H / 2 - 82);
+    ctx.globalAlpha = 1;
+
+    // Controls
+    ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
+    const controls = [
+      'WASD - Move',
+      'Mouse - Aim & Shoot',
+      'Right-Click / X / Shift - Detonate',
+    ];
+    let cy = H / 2 - 30;
+    for (const line of controls) {
+      ctx.fillText(line, W / 2, cy);
+      cy += 22;
+    }
+
+    // Tips
+    ctx.fillStyle = '#f84'; ctx.font = 'bold 13px monospace';
+    cy += 10;
+    ctx.fillText('Stick bullets to enemies, then DETONATE for chain reactions!', W / 2, cy);
+    cy += 18;
+    ctx.fillStyle = '#4ff'; ctx.font = '12px monospace';
+    ctx.fillText('More stuck bullets = bigger bonus multiplier', W / 2, cy);
+
+    // Start prompt
+    const startPulse = 0.5 + 0.5 * Math.sin(now * 0.005);
+    ctx.globalAlpha = startPulse;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px monospace';
+    ctx.fillText('Click or press any key to start', W / 2, H / 2 + 130);
+    ctx.globalAlpha = 1;
+
+    // High score
+    if (highScore > 0) {
+      ctx.fillStyle = '#888'; ctx.font = '13px monospace';
+      ctx.fillText(`High Score: ${highScore}`, W / 2, H / 2 + 165);
+    }
+
+    ctx.textAlign = 'left';
+    return;
+  }
 
   // Game over
   if (gameOver) {
