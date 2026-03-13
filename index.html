@@ -69,7 +69,7 @@ for (let i = 0; i < MAX_EXP_LIGHTS; i++) {
 }
 
 // ============ ARENA FLOOR ============
-const ARENA_R = 1200;
+const ARENA_R = 850;
 const floorGeo = new THREE.CircleGeometry(ARENA_R, 64);
 const floorMat = new THREE.MeshStandardMaterial({ color: 0x222244, metalness: 0.2, roughness: 0.8 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -445,8 +445,8 @@ function endGame() {
 function spawnEnemy(forceType) {
   let type = forceType;
   if (!type) {
-    const types = ['small', 'medium', 'large'];
-    const weights = [0.45, 0.35, 0.2];
+    const types = ['small', 'medium', 'large', 'runner', 'spawner', 'electric'];
+    const weights = [0.30, 0.25, 0.12, 0.15, 0.08, 0.10];
     let r = Math.random(), cumul = 0;
     type = 'small';
     for (let i = 0; i < types.length; i++) {
@@ -455,10 +455,13 @@ function spawnEnemy(forceType) {
     }
   }
   const defs = {
-    small:   { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10 },
-    medium:  { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25 },
-    large:   { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50 },
-    boss:    { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
+    small:    { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10 },
+    medium:   { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25 },
+    large:    { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50 },
+    runner:   { r: 16, hp: 3,  maxHp: 3,  speed: 120, color: '#8ff', score: 15 },
+    spawner:  { r: 28, hp: 40, maxHp: 40, speed: 18,  color: '#a6a', score: 60 },
+    electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35 },
+    boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
   };
   const d = defs[type];
   // Spawn on arena edge
@@ -467,7 +470,10 @@ function spawnEnemy(forceType) {
   const e = {
     x: Math.cos(angle) * spawnDist, y: Math.sin(angle) * spawnDist,
     ...d, type, stuck: [],
-    wobble: Math.random() * Math.PI * 2
+    wobble: Math.random() * Math.PI * 2,
+    spawnTimer: type === 'spawner' ? 3 + Math.random() * 2 : 0,
+    zapTimer: type === 'electric' ? 2 + Math.random() : 0,
+    zapActive: 0
   };
   enemies.push(e);
   return e;
@@ -657,6 +663,61 @@ function update(dt) {
       e.y += Math.sin(wobbleAngle) * e.speed * dt;
     }
     for (let s of e.stuck) s.pulseT += dt;
+
+    // Spawner: periodically spawns small enemies nearby
+    if (e.type === 'spawner' && e.hp > 0) {
+      e.spawnTimer -= dt;
+      if (e.spawnTimer <= 0) {
+        e.spawnTimer = 3 + Math.random() * 2;
+        // Spawn 2 small enemies around the spawner
+        for (let s = 0; s < 2; s++) {
+          const sa = Math.random() * Math.PI * 2;
+          const child = {
+            x: e.x + Math.cos(sa) * 35, y: e.y + Math.sin(sa) * 35,
+            r: 10, hp: 3, maxHp: 3, speed: 55, color: '#c8c', score: 5,
+            type: 'small', stuck: [], wobble: Math.random() * Math.PI * 2,
+            spawnTimer: 0, zapTimer: 0, zapActive: 0
+          };
+          enemies.push(child);
+          spawnParticles(child.x, child.y, 4, '#a6a', 0.3);
+        }
+        spawnParticles(e.x, e.y, 6, '#a6a', 0.4);
+        sfx('stick');
+      }
+    }
+
+    // Electric: periodic zap field
+    if (e.type === 'electric' && e.hp > 0) {
+      if (e.zapActive > 0) {
+        e.zapActive -= dt;
+        // Damage player if in range
+        const zapRadius = 140;
+        if (player.invuln <= 0 && dist(player, e) < zapRadius + player.r) {
+          if (player.shield > 0) {
+            player.shield = 0;
+            spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
+          } else if (!(getPerkCount('armor') > 0 && Math.random() < getPerkCount('armor') * 0.2)) {
+            player.hp--;
+            player.invuln = 1.5;
+            shakeTimer = 0.2; shakeIntensity = 4;
+            spawnParticles(player.x, player.y, 8, '#ff0', 0.4);
+            sfx('hit');
+            if (player.hp <= 0) endGame();
+          } else {
+            spawnFloatingText(player.x, player.y + 20, 'DEFLECT!', '#aaa', 14);
+            player.invuln = 0.5;
+          }
+        }
+      } else {
+        e.zapTimer -= dt;
+        if (e.zapTimer <= 0) {
+          e.zapTimer = 3 + Math.random() * 1.5;
+          e.zapActive = 0.8; // zap lasts 0.8s
+          spawnParticles(e.x, e.y, 12, '#ff0', 0.5);
+          sfx('chain', { depth: 1 });
+        }
+      }
+    }
 
     // Clamp to arena
     const ec = clampToArena(e.x, e.y, e.r);
@@ -975,8 +1036,9 @@ function draw3D(now) {
   // Enemies
   for (let e of enemies) {
     const mesh = getOrCreateMesh(e, () => {
-      const depth = e.type === 'boss' ? 20 : e.type === 'large' ? 14 : 8;
-      const geo = new THREE.CylinderGeometry(e.r * 0.8, e.r, depth, e.type === 'boss' ? 8 : 6);
+      const depth = e.type === 'boss' ? 20 : e.type === 'large' || e.type === 'spawner' ? 14 : e.type === 'runner' ? 5 : 8;
+      const segments = e.type === 'boss' ? 8 : e.type === 'runner' ? 3 : e.type === 'spawner' ? 10 : 6;
+      const geo = new THREE.CylinderGeometry(e.r * 0.8, e.r, depth, segments);
       geo.rotateX(Math.PI / 2);
       const mat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
@@ -984,7 +1046,7 @@ function draw3D(now) {
       });
       const m = new THREE.Mesh(geo, mat);
       // Eyes
-      const eyeSize = e.type === 'boss' ? 5 : 2.5;
+      const eyeSize = e.type === 'boss' ? 5 : e.type === 'runner' ? 2 : 2.5;
       const eyeGeo = new THREE.SphereGeometry(eyeSize, 6, 6);
       const eyeMat = new THREE.MeshBasicMaterial({ color: e.type === 'boss' ? 0xffff00 : 0x111111 });
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
@@ -999,6 +1061,22 @@ function draw3D(now) {
         eye3.position.set(e.r * 0.3, -e.r * 0.4, depth / 2 + 1);
         m.add(eye3);
       }
+      // Electric: add zap ring
+      if (e.type === 'electric') {
+        const zapRingGeo = new THREE.TorusGeometry(140, 1.5, 6, 24);
+        const zapRingMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0 });
+        const zapRing = new THREE.Mesh(zapRingGeo, zapRingMat);
+        zapRing.name = 'zapRing';
+        m.add(zapRing);
+      }
+      // Spawner: add spawner ring
+      if (e.type === 'spawner') {
+        const spawnRingGeo = new THREE.TorusGeometry(35, 1, 6, 16);
+        const spawnRingMat = new THREE.MeshBasicMaterial({ color: 0xaa66aa, transparent: true, opacity: 0.3 });
+        const spawnRing = new THREE.Mesh(spawnRingGeo, spawnRingMat);
+        spawnRing.name = 'spawnRing';
+        m.add(spawnRing);
+      }
       return m;
     });
     const faceAngle = Math.atan2(player.y - e.y, player.x - e.x);
@@ -1008,6 +1086,24 @@ function draw3D(now) {
       mesh.material.emissiveIntensity = 0.2 + 0.3 * Math.sin(now * 0.008) + e.stuck.length * 0.05;
     } else {
       mesh.material.emissiveIntensity = 0.2;
+    }
+    // Electric zap ring animation
+    if (e.type === 'electric') {
+      const zapRing = mesh.getObjectByName('zapRing');
+      if (zapRing) {
+        zapRing.material.opacity = e.zapActive > 0 ? 0.5 + 0.3 * Math.sin(now * 0.02) : 0;
+        zapRing.rotation.z = now * 0.003 - faceAngle;
+        if (e.zapActive > 0) zapRing.scale.setScalar(0.8 + 0.2 * Math.sin(now * 0.015));
+      }
+    }
+    // Spawner ring rotation
+    if (e.type === 'spawner') {
+      const spawnRing = mesh.getObjectByName('spawnRing');
+      if (spawnRing) {
+        spawnRing.rotation.z = now * 0.002 - faceAngle;
+        const spawnPulse = e.spawnTimer < 1 ? 0.4 + 0.4 * Math.sin(now * 0.01) : 0.3;
+        spawnRing.material.opacity = spawnPulse;
+      }
     }
   }
 
