@@ -25,9 +25,9 @@ Todo
   4) [X] Add HIVE enemy type. This units spawns somewhere on the map (not the
      edge. It is larger, immobile, and very tanky. It spawns critter units very
      quickly. Similar to SPAWNER, but more extreme.
-  5) [ ] Make HIVE unit bigger. It should be differentiated from other large
+  5) [X] Make HIVE unit bigger. It should be differentiated from other large
      enemy units.
-  6) [ ] HIVE should be much tankier. It's too easy to kill.
+  6) [X] HIVE should be much tankier. It's too easy to kill.
   7) [ ] Implement RARE enemy types. Rare units are like normal units but have
      boosted stats. RARE is a modifier applied to an existing unit.
      Differentiate the unit visually. Rare units can also have one or more perks
