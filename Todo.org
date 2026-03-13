@@ -12,7 +12,7 @@ Todo
   2) [ ] Waves should last longer and each wave should have a theme.
 
 * PLAYER
-  1) [ ] Level up window is abrupt. Show a level up visual like a golden glow
+  1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
 
 * ENEMY TYPES
@@ -62,12 +62,11 @@ Todo
      quantity.
 
 * PERKS
-  1) [ ] Remove FAST LEARNER perk.
-  2) [ ] Remove VAMPIRIC perk.
+  1) [X] Remove FAST LEARNER perk.
+  2) [X] Remove VAMPIRIC perk.
 
 * VISUALS
-  1) [ ] Make explosions red in color.
-  2) [ ] Make weapon items distinct from powerups.
+  1) [ ] Make weapon items distinct from powerups.
 
 * PERF
   1) [ ] What is the main performance bottleneck?
