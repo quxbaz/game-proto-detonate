@@ -18,7 +18,7 @@ Todo
   3) [X] Add ELECTRIC enemy type. This unit spawns an electric field around
      itself every N interval that can damage the player.
   4) [X] Add HIVE enemy type. This units spawns somewhere on the map (not the
-     edge. It is larget, immobile, and very tanky. It spawns critter units very
+     edge. It is larger, immobile, and very tanky. It spawns critter units very
      quickly. Similar to SPAWNER, but more extreme.
 
 * WEAPONS
@@ -37,6 +37,7 @@ Todo
 
 * PERKS
   1) [ ] Remove FAST LEARNER perk.
+  2) [ ] Remove VAMPIRIC perk.
 
 * VISUALS
   1) [ ] Make explosions red in color.
