@@ -41,3 +41,6 @@ Todo
 
 * VISUALS
   1) [ ] Make explosions red in color.
+
+* PERF
+  1) [ ] What is the main performance bottleneck?
