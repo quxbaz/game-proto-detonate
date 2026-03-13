@@ -596,7 +596,7 @@ function update(dt) {
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
   if (player.grenade > 0) { wRate = 0.7; }
   else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.35; }
-  else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 360; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
+  else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 900; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
   shootCooldown -= dt;
@@ -1597,6 +1597,22 @@ function drawHUD(now) {
     ctx.font = `bold ${ft.size}px monospace`;
     ctx.textAlign = 'center';
     ctx.fillText(ft.text, sx, sy);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+
+  // Powerup/weapon drop labels
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 10px monospace';
+  for (let p of powerups) {
+    const sx = W / 2 + (p.x - player.x);
+    const sy = H / 2 - (p.y - player.y) + 28;
+    const fade = p.life < 3 ? 0.3 + 0.7 * (p.life / 3) : 1;
+    const blink = p.life < 3 && Math.floor(p.life * 6) % 2 === 0;
+    if (blink) continue;
+    ctx.globalAlpha = fade * 0.9;
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.label, sx, sy);
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
