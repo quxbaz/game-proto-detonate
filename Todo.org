@@ -2,20 +2,24 @@ Todo
 
 * HUD
 
-* Gameplay
+* GAMEPLAY
 
-* Enemy units
-  1) Add spawner enemy type. This particular unit is slow and tanky. It spawns
-     enemy units around itself until it's destroyed.
-  2) Add runner enemy type. This unit is weak but moves more quickly than others.
-  3) Add electric enemy type. This unit spawns an electric field around itself
-     every N interval that can damage the player.
+* ENEMY UNITS
+  1) [ ] Add spawner enemy type. This particular unit is slow and tanky. It
+     spawns enemy units around itself until it's destroyed.
+  2) [ ] Add runner enemy type. This unit is weak but moves more quickly than
+     others.
+  3) [ ] Add electric enemy type. This unit spawns an electric field around
+     itself every N interval that can damage the player.
 
-* Weapons
+* WEAPONS
 
-* Powerups
+* POWERUPS
+  1) [ ] Powerups scale scale with the player's base stats when possible. For
+     example, spread/multi should apply a multiplier to the current bullet
+     quantity.
 
-* Perks
+* PERKS
 
-* Visuals
+* VISUALS
   1) Make explosions red in color.
