@@ -24,6 +24,7 @@ Todo
      quantity.
 
 * PERKS
+  1) [ ] Remove FAST LEARNER perk.
 
 * VISUALS
   1) [ ] Make explosions red in color.
