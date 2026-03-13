@@ -11,7 +11,7 @@ Todo
      others.
   3) [X] Add ELECTRIC enemy type. This unit spawns an electric field around
      itself every N interval that can damage the player.
-  4) [ ] Add HIVE enemy type. This units spawns somewhere on the map (not the
+  4) [X] Add HIVE enemy type. This units spawns somewhere on the map (not the
      edge. It is larget, immobile, and very tanky. It spawns critter units very
      quickly. Similar to SPAWNER, but more extreme.
 
