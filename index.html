@@ -696,16 +696,17 @@ function spawnEnemy(forceType) {
       if (r < cumul) { type = types[i]; break; }
     }
   }
+  // sizeClass: 0=small, 1=medium, 2=large, 3=xlarge, 4=superlarge
   const defs = {
-    small:    { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10 },
-    medium:   { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25 },
-    large:    { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50 },
-    runner:   { r: 16, hp: 3,  maxHp: 3,  speed: 120, color: '#8ff', score: 15 },
-    spawner:  { r: 28, hp: 40, maxHp: 40, speed: 18,  color: '#a6a', score: 60 },
-    electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35 },
-    boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
-    hive:     { r: 50, hp: 250, maxHp: 250, speed: 0, color: '#6a4', score: 120 },
-    dummy:    { r: 24, hp: 9999, maxHp: 9999, speed: 0, color: '#888', score: 0 },
+    small:    { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10,  sizeClass: 0 },
+    medium:   { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25,  sizeClass: 1 },
+    large:    { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50,  sizeClass: 2 },
+    runner:   { r: 16, hp: 3,  maxHp: 3,  speed: 120, color: '#8ff', score: 15,  sizeClass: 0 },
+    spawner:  { r: 28, hp: 40, maxHp: 40, speed: 18,  color: '#a6a', score: 60,  sizeClass: 2 },
+    electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35,  sizeClass: 1 },
+    boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200, sizeClass: 3 },
+    hive:     { r: 50, hp: 250, maxHp: 250, speed: 0, color: '#6a4', score: 120, sizeClass: 3 },
+    dummy:    { r: 24, hp: 9999, maxHp: 9999, speed: 0, color: '#888', score: 0, sizeClass: 1 },
   };
   const d = { ...defs[type] };
   // Scale with wave difficulty
@@ -1879,6 +1880,20 @@ function draw3D(now) {
 // ============ HUD ============
 function drawHUD(now) {
   ctx.clearRect(0, 0, W, H);
+
+  // Enemy health bars (large enemies)
+  for (let e of enemies) {
+    if ((e.sizeClass || 0) < 1 || e.hp <= 0) continue;
+    const sx = W / 2 + (e.x - player.x);
+    const sy = H / 2 - (e.y - player.y) - e.r - 8;
+    const bw = [0, 36, 44, 56, 70][e.sizeClass] || 36;
+    const bh = e.sizeClass >= 3 ? 5 : 4;
+    const frac = e.hp / e.maxHp;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(sx - bw / 2, sy, bw, bh);
+    ctx.fillStyle = frac > 0.5 ? '#4f4' : frac > 0.25 ? '#ff4' : '#f44';
+    ctx.fillRect(sx - bw / 2, sy, bw * frac, bh);
+  }
 
   // Floating texts (convert world to screen)
   for (let ft of floatingTexts) {
