@@ -1681,8 +1681,9 @@ function draw3D(now) {
       return group;
     });
     const frac = Math.min(g.t / g.dur, 1);
-    const lobScale = 1 + 0.5 * Math.sin(frac * Math.PI);
-    mesh.position.set(g.x, g.y, g.z || 0);
+    const lobHeight = Math.sin(frac * Math.PI) * 60;
+    const lobScale = 1 + 0.8 * Math.sin(frac * Math.PI);
+    mesh.position.set(g.x, g.y + lobHeight, 10 + g.z);
     mesh.scale.setScalar(lobScale);
     mesh.rotation.z = frac * Math.PI * 4;
     mesh.rotation.x = frac * Math.PI * 3;
