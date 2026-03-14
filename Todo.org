@@ -105,6 +105,7 @@ Todo
   Platforms: Switch, Steam
 
 * SORT
+  Clamp pistol spread arc to 45 degrees.
   Show life bars on large units
   Globber enemy. Consumes enemies around itself and adds to its life and size
   Glitter gun. Similar to Scattergun but has special detonation effect.
