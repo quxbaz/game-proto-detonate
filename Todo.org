@@ -12,6 +12,7 @@ Todo
   2) [ ] Waves should last longer and each wave should have a theme.
   3) [ ] Start with 5 detonators.
   4) [ ] Recoil system. Some weapons push the player back and/or slow them down.
+  5) [ ] Remove default magnetic powerups. This will be used as a skill.
 
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
@@ -117,6 +118,10 @@ Todo
   1) [X] Remove FAST LEARNER skill.
   2) [X] Remove VAMPIRIC skill.
   3) [ ] Add skill ENGINEER to increase detonator limit.
+  4) [ ] Add MAGICIAN skill.
+  5) [ ] Add JUGGLER skill.
+  6) [ ] Add FAR-SEER skill. Increase powerup spawn limit.
+  7) [ ] Add MAGNETIC skill. Attract items.
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
