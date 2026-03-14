@@ -216,6 +216,8 @@ let mouse = { sx: W / 2, sy: H / 2, down: false };
 let detonating = false;
 let startScreen = true;
 let paused = false;
+let debugMenu = false;
+let debugTab = 0; // 0=perks, 1=powerups, 2=weapons, 3=misc
 
 // ============ PERK SYSTEM ============
 const ALL_PERKS = [
@@ -280,6 +282,76 @@ function selectPerk(index) {
   spawnFloatingText(player.x, player.y + 30, perk.label, perk.color, 18);
   spawnParticles(player.x, player.y, 15, perk.color, 0.5);
   perkChoices = null;
+}
+
+function getDebugItems() {
+  const perks = ALL_PERKS.map(p => ({ label: p.label, color: p.color, perkId: p.id, action: () => {
+    perksPicked.push(p.id);
+    if (p.id === 'maxHp') { player.maxHp++; player.hp = Math.min(player.hp + 1, player.maxHp); }
+    spawnFloatingText(player.x, player.y + 30, p.label, p.color, 18);
+  }}));
+  const powerups = Object.entries(POWERUP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
+    applyPowerup(k);
+    spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
+  }}));
+  const weapons = Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
+    applyWeaponDrop(k);
+    spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
+  }}));
+  const misc = [
+    { label: '+5 LEVELS', color: '#ff4', action: () => { for (let i = 0; i < 5; i++) { playerLevel++; xpToNext = xpForLevel(playerLevel); } }},
+    { label: '+1 LEVEL', color: '#ff4', action: () => { playerLevel++; xpToNext = xpForLevel(playerLevel); }},
+    { label: 'FULL HP', color: '#4f4', action: () => { player.hp = player.maxHp; }},
+    { label: '+10 MAX HP', color: '#4f4', action: () => { player.maxHp += 10; player.hp = player.maxHp; }},
+    { label: 'KILL ALL', color: '#f44', action: () => { for (let e of enemies) e.hp = 0; }},
+    { label: 'SKIP 10 WAVES', color: '#fa0', action: () => { wave += 10; }},
+    { label: 'GOD MODE', color: '#ff0', action: () => { player.invuln = 9999; }},
+  ];
+  const enemyTypes = [
+    { label: 'SMALL',    color: '#4f8', action: () => spawnEnemy('small') },
+    { label: 'MEDIUM',   color: '#f84', action: () => spawnEnemy('medium') },
+    { label: 'LARGE',    color: '#f44', action: () => spawnEnemy('large') },
+    { label: 'RUNNER',   color: '#8ff', action: () => spawnEnemy('runner') },
+    { label: 'SPAWNER',  color: '#a6a', action: () => spawnEnemy('spawner') },
+    { label: 'ELECTRIC', color: '#ff0', action: () => spawnEnemy('electric') },
+    { label: 'BOSS',     color: '#f22', action: () => spawnEnemy('boss') },
+    { label: 'HIVE',     color: '#6a4', action: () => spawnEnemy('hive') },
+  ];
+  return [weapons, perks, powerups, enemyTypes, misc];
+}
+
+const DEBUG_TABS = ['WEAPONS', 'PERKS', 'POWERUPS', 'ENEMIES', 'MISC'];
+const DEBUG_ITEM_H = 28;
+const DEBUG_PANEL_W = 300;
+
+function handleDebugClick(mx, my) {
+  const items = getDebugItems()[debugTab];
+  const panelX = W / 2 - DEBUG_PANEL_W / 2;
+  const headerH = 50;
+  const tabH = 30;
+  const baseY = H * 0.2;
+  const tabY = baseY + headerH;
+  const tabW = DEBUG_PANEL_W / 5;
+  // Tab clicks
+  for (let t = 0; t < 5; t++) {
+    const tx = panelX + t * tabW;
+    if (mx >= tx && mx <= tx + tabW && my >= tabY && my <= tabY + tabH) {
+      debugTab = t;
+      return;
+    }
+  }
+  // Item clicks
+  const startItemY = tabY + tabH;
+  for (let i = 0; i < items.length; i++) {
+    const iy = startItemY + i * DEBUG_ITEM_H;
+    if (mx >= panelX && mx <= panelX + DEBUG_PANEL_W && my >= iy && my <= iy + DEBUG_ITEM_H) {
+      items[i].action();
+      return;
+    }
+  }
+  // Clicked outside menu — close
+  debugMenu = false;
+  paused = false;
 }
 
 highScore = parseInt(localStorage.getItem('arenaShooterHS') || '0');
@@ -356,7 +428,19 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen) return;
   if (e.code === 'KeyR' && gameOver) init();
-  if (e.code === 'Escape' && !e.repeat && !gameOver && !startScreen && !perkChoices) paused = !paused;
+  if (e.code === 'Escape' && !e.repeat && !gameOver && !startScreen && !perkChoices) {
+    if (debugMenu) { debugMenu = false; paused = false; }
+    else paused = !paused;
+  }
+  if (e.code === 'Tab' && !e.repeat && !gameOver && !startScreen && !perkChoices) {
+    e.preventDefault();
+    if (debugMenu) {
+      debugTab = e.shiftKey ? (debugTab + 4) % 5 : (debugTab + 1) % 5;
+    } else {
+      debugMenu = true;
+      paused = true;
+    }
+  }
   // Perk selection with 1/2/3
   if (perkChoices) {
     if (e.code === 'Digit1') selectPerk(0);
@@ -375,6 +459,7 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mousedown', e => {
   if (e.button === 0) {
     if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
+    if (debugMenu) { handleDebugClick(e.clientX, e.clientY); return; }
     if (paused) { paused = false; return; }
     if (perkChoices) {
       // Check if clicking a perk card
@@ -1957,12 +2042,65 @@ function drawHUD(now) {
   ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 15); ctx.stroke();
 
   // Paused
-  if (paused) {
+  if (paused && !debugMenu) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 36px monospace'; ctx.textAlign = 'center';
     ctx.fillText('PAUSED', W / 2, H / 2 - 10);
     ctx.fillStyle = '#aaa'; ctx.font = '14px monospace';
     ctx.fillText('Click or press ESC to resume', W / 2, H / 2 + 25);
+    ctx.textAlign = 'left';
+  }
+
+  // Debug menu
+  if (debugMenu) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
+    const items = getDebugItems()[debugTab];
+    const panelX = W / 2 - DEBUG_PANEL_W / 2;
+    const headerH = 50;
+    const tabH = 30;
+    const baseY = H * 0.2;
+    // Title
+    ctx.fillStyle = '#ff0'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('DEBUG MENU', W / 2, baseY + 24);
+    ctx.fillStyle = '#888'; ctx.font = '10px monospace';
+    ctx.fillText('ESC to close | TAB to switch | Click to apply', W / 2, baseY + 40);
+    // Tabs
+    const tabY = baseY + headerH;
+    const tabW = DEBUG_PANEL_W / 5;
+    for (let t = 0; t < 5; t++) {
+      const tx = panelX + t * tabW;
+      ctx.fillStyle = t === debugTab ? 'rgba(255,255,100,0.25)' : 'rgba(255,255,255,0.08)';
+      ctx.fillRect(tx, tabY, tabW, tabH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1;
+      ctx.strokeRect(tx, tabY, tabW, tabH);
+      ctx.fillStyle = t === debugTab ? '#ff0' : '#888';
+      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(DEBUG_TABS[t], tx + tabW / 2, tabY + 19);
+    }
+    // Items
+    const startItemY = tabY + tabH;
+    for (let i = 0; i < items.length; i++) {
+      const iy = startItemY + i * DEBUG_ITEM_H;
+      const hover = mouse.sx >= panelX && mouse.sx <= panelX + DEBUG_PANEL_W && mouse.sy >= iy && mouse.sy <= iy + DEBUG_ITEM_H;
+      ctx.fillStyle = hover ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
+      ctx.fillRect(panelX, iy, DEBUG_PANEL_W, DEBUG_ITEM_H);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+      ctx.strokeRect(panelX, iy, DEBUG_PANEL_W, DEBUG_ITEM_H);
+      // Color dot
+      ctx.fillStyle = items[i].color;
+      ctx.beginPath(); ctx.arc(panelX + 16, iy + DEBUG_ITEM_H / 2, 5, 0, Math.PI * 2); ctx.fill();
+      // Label
+      ctx.fillStyle = hover ? '#fff' : '#ccc';
+      ctx.font = '13px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(items[i].label, panelX + 30, iy + DEBUG_ITEM_H / 2 + 4);
+      if (items[i].perkId) {
+        const count = getPerkCount(items[i].perkId);
+        if (count > 0) {
+          ctx.fillStyle = '#ff0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+          ctx.fillText('x' + count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        }
+      }
+    }
     ctx.textAlign = 'left';
   }
 
