@@ -217,7 +217,8 @@ let detonating = false;
 let startScreen = true;
 let paused = false;
 let debugMenu = false;
-let debugTab = 0; // 0=perks, 1=powerups, 2=weapons, 3=misc
+let debugTab = 0;
+let debugNoEnemies = false;
 
 // ============ PERK SYSTEM ============
 const ALL_PERKS = [
@@ -294,10 +295,17 @@ function getDebugItems() {
     applyPowerup(k);
     spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
   }}));
-  const weapons = Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
-    applyWeaponDrop(k);
-    spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
-  }}));
+  const weapons = [
+    { label: 'PISTOL', color: '#4af', action: () => {
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      spawnFloatingText(player.x, player.y + 30, 'PISTOL', '#4af', 18);
+    }},
+    ...Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      player[k] = 99999;
+      spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
+    }})),
+  ];
   const misc = [
     { label: '+5 LEVELS', color: '#ff4', action: () => { for (let i = 0; i < 5; i++) { playerLevel++; xpToNext = xpForLevel(playerLevel); } }},
     { label: '+1 LEVEL', color: '#ff4', action: () => { playerLevel++; xpToNext = xpForLevel(playerLevel); }},
@@ -305,24 +313,29 @@ function getDebugItems() {
     { label: '+10 MAX HP', color: '#4f4', action: () => { player.maxHp += 10; player.hp = player.maxHp; }},
     { label: 'KILL ALL', color: '#f44', action: () => { for (let e of enemies) e.hp = 0; }},
     { label: 'SKIP 10 WAVES', color: '#fa0', action: () => { wave += 10; }},
-    { label: 'GOD MODE', color: '#ff0', action: () => { player.invuln = 9999; }},
   ];
   const enemyTypes = [
-    { label: 'SMALL',    color: '#4f8', action: () => spawnEnemy('small') },
-    { label: 'MEDIUM',   color: '#f84', action: () => spawnEnemy('medium') },
-    { label: 'LARGE',    color: '#f44', action: () => spawnEnemy('large') },
-    { label: 'RUNNER',   color: '#8ff', action: () => spawnEnemy('runner') },
-    { label: 'SPAWNER',  color: '#a6a', action: () => spawnEnemy('spawner') },
-    { label: 'ELECTRIC', color: '#ff0', action: () => spawnEnemy('electric') },
-    { label: 'BOSS',     color: '#f22', action: () => spawnEnemy('boss') },
-    { label: 'HIVE',     color: '#6a4', action: () => spawnEnemy('hive') },
+    { label: 'DUMMY',    color: '#888', enemyType: 'dummy',    action: () => spawnEnemy('dummy') },
+    { label: 'SMALL',    color: '#4f8', enemyType: 'small',    action: () => spawnEnemy('small') },
+    { label: 'MEDIUM',   color: '#f84', enemyType: 'medium',   action: () => spawnEnemy('medium') },
+    { label: 'LARGE',    color: '#f44', enemyType: 'large',    action: () => spawnEnemy('large') },
+    { label: 'RUNNER',   color: '#8ff', enemyType: 'runner',   action: () => spawnEnemy('runner') },
+    { label: 'SPAWNER',  color: '#a6a', enemyType: 'spawner',  action: () => spawnEnemy('spawner') },
+    { label: 'ELECTRIC', color: '#ff0', enemyType: 'electric', action: () => spawnEnemy('electric') },
+    { label: 'BOSS',     color: '#f22', enemyType: 'boss',     action: () => spawnEnemy('boss') },
+    { label: 'HIVE',     color: '#6a4', enemyType: 'hive',     action: () => spawnEnemy('hive') },
   ];
-  return [weapons, perks, powerups, enemyTypes, misc];
+  const godMode = player.invuln > 9000;
+  const modes = [
+    { label: 'GOD MODE', color: godMode ? '#4f4' : '#888', toggle: true, action: () => { player.invuln = godMode ? 0 : 99999; } },
+    { label: 'NO SPAWN', color: debugNoEnemies ? '#4f4' : '#888', toggle: true, action: () => { debugNoEnemies = !debugNoEnemies; } },
+  ];
+  return [weapons, perks, powerups, enemyTypes, modes, misc];
 }
 
-const DEBUG_TABS = ['WEAPONS', 'PERKS', 'POWERUPS', 'ENEMIES', 'MISC'];
+const DEBUG_TABS = ['WEAPONS', 'SKILLS', 'POWERUPS', 'SPAWNS', 'MODES', 'MISC'];
 const DEBUG_ITEM_H = 28;
-const DEBUG_PANEL_W = 300;
+const DEBUG_PANEL_W = 330;
 
 function handleDebugClick(mx, my) {
   const items = getDebugItems()[debugTab];
@@ -331,9 +344,9 @@ function handleDebugClick(mx, my) {
   const tabH = 30;
   const baseY = H * 0.2;
   const tabY = baseY + headerH;
-  const tabW = DEBUG_PANEL_W / 5;
+  const tabW = DEBUG_PANEL_W / 6;
   // Tab clicks
-  for (let t = 0; t < 5; t++) {
+  for (let t = 0; t < 6; t++) {
     const tx = panelX + t * tabW;
     if (mx >= tx && mx <= tx + tabW && my >= tabY && my <= tabY + tabH) {
       debugTab = t;
@@ -394,6 +407,7 @@ function init() {
   };
   bullets = [];
   grenades = [];
+  grenadeIdCounter = 0;
   enemies = [];
   explosions = [];
   particles = [];
@@ -426,20 +440,25 @@ init();
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') e.preventDefault();
+  if (startScreen && e.code === 'Backquote') {
+    startScreen = false; init();
+    debugNoEnemies = true; debugMenu = true; paused = true;
+    document.documentElement.requestFullscreen().catch(()=>{});
+    return;
+  }
   if (startScreen) return;
   if (e.code === 'KeyR' && gameOver) init();
   if (e.code === 'Escape' && !e.repeat && !gameOver && !startScreen && !perkChoices) {
     if (debugMenu) { debugMenu = false; paused = false; }
     else paused = !paused;
   }
-  if (e.code === 'Tab' && !e.repeat && !gameOver && !startScreen && !perkChoices) {
+  if (e.code === 'Backquote' && !e.repeat && !gameOver && !startScreen && !perkChoices) {
+    debugMenu = !debugMenu;
+    paused = debugMenu;
+  }
+  if (debugMenu && e.code === 'Tab') {
     e.preventDefault();
-    if (debugMenu) {
-      debugTab = e.shiftKey ? (debugTab + 4) % 5 : (debugTab + 1) % 5;
-    } else {
-      debugMenu = true;
-      paused = true;
-    }
+    debugTab = e.shiftKey ? (debugTab + 5) % 6 : (debugTab + 1) % 6;
   }
   // Perk selection with 1/2/3
   if (perkChoices) {
@@ -575,6 +594,7 @@ function spawnEnemy(forceType) {
     electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35 },
     boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200 },
     hive:     { r: 50, hp: 250, maxHp: 250, speed: 0, color: '#6a4', score: 120 },
+    dummy:    { r: 24, hp: 9999, maxHp: 9999, speed: 0, color: '#888', score: 0 },
   };
   const d = { ...defs[type] };
   // Scale with wave difficulty
@@ -585,7 +605,7 @@ function spawnEnemy(forceType) {
   // Spawn location
   const angle = Math.random() * Math.PI * 2;
   let sx, sy;
-  if (type === 'hive') {
+  if (type === 'hive' || type === 'dummy') {
     // Spawn inside arena, away from player
     const spawnR = 200 + Math.random() * (ARENA_R - 300);
     sx = Math.cos(angle) * spawnR;
@@ -711,7 +731,8 @@ function update(dt) {
         x: player.x, y: player.y,
         sx: player.x, sy: player.y,
         tx: tx, ty: ty,
-        t: 0, dur: travelTime, r: 6 * gSizeMult, z: 0
+        t: 0, dur: travelTime, r: 6 * gSizeMult, z: 0,
+        gid: ++grenadeIdCounter
       });
     }
     shootCooldown = fireRate;
@@ -779,7 +800,7 @@ function update(dt) {
         const angle = (Math.PI * 2 / (shrapnelCount * gMegaMult)) * s + (Math.random() - 0.5) * 0.4;
         const spd2 = (160 + Math.random() * 140) * gOverMult;
         const sr = 3 * (player.megablast > 0 ? 1.5 : 1);
-        bullets.push({ x: g.x, y: g.y, r: sr, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true });
+        bullets.push({ x: g.x, y: g.y, r: sr, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true, gid: g.gid });
       }
       // Explosion visual
       const sides = 5 + Math.floor(Math.random() * 4);
@@ -834,8 +855,8 @@ function update(dt) {
     if (b.grenadeShrapnel) {
       const drag = Math.pow(0.3, dt);
       b.vx *= drag; b.vy *= drag;
-      // Remove when nearly stopped
-      if (b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
+      // Remove when nearly stopped (unless queued for detonation)
+      if (!b._detonating && b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
@@ -845,13 +866,6 @@ function update(dt) {
     let hit = false;
     for (let e of enemies) {
       if (circlesOverlap(b, b.r, e, e.r)) {
-        // Grenade shrapnel deals direct damage instead of sticking
-        if (b.grenadeShrapnel) {
-          e.hp -= 2;
-          e.explodedBy = true;
-          spawnParticles(b.x, b.y, 3, '#f44', 0.2);
-          bullets.splice(i, 1); hit = true; break;
-        }
         e.stuck.push({ ox: b.x - e.x, oy: b.y - e.y, pulseT: 0 });
         spawnParticles(b.x, b.y, 3, '#ff0', 0.2);
         sfx('stick');
@@ -885,7 +899,7 @@ function update(dt) {
 
   // Enemy spawning
   spawnTimer -= dt;
-  if (spawnTimer <= 0) {
+  if (spawnTimer <= 0 && !debugNoEnemies) {
     waveNum++;
     if (waveNum % 20 === 0) {
       spawnBoss();
@@ -1194,54 +1208,63 @@ function triggerDetonation() {
     spawnFloatingText(avgX, avgY + 30, `DETONATE +${flatBonus}`, col, stuckBonus > 1 ? 20 : 14);
   }
 
-  // Detonate grenade shrapnel in sequence with tiny intervals
+  // Detonate grenade shrapnel in sequence per grenade
   const megaMult = player.megablast > 0 ? 2 : 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
   const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
-  // Snapshot shrapnel positions and remove bullets immediately
-  const shrapnelSnaps = [];
+  // Group shrapnel by grenade ID, keeping references to actual bullets
+  const groups = {};
   for (let idx of grenadeShrapnelBullets) {
     const b = bullets[idx];
-    if (b) shrapnelSnaps.push({ x: b.x, y: b.y });
+    if (!b) continue;
+    const gid = b.gid || 0;
+    if (!groups[gid]) groups[gid] = [];
+    groups[gid].push(b);
+    b._detonating = true; // mark so it won't be removed by normal logic
   }
-  for (let idx of grenadeShrapnelBullets) {
-    if (idx < bullets.length) bullets.splice(idx, 1);
+  // Each group sequences independently, all start at t=0
+  const gsDelay = 30;
+  let maxDelay = 0;
+  for (const gid in groups) {
+    const group = groups[gid];
+    group.forEach((b, i) => {
+      const delay = i * gsDelay;
+      if (delay > maxDelay) maxDelay = delay;
+      setTimeout(() => {
+        const r = 40 * megaMult * overMult;
+        const sides = 5 + Math.floor(Math.random() * 4);
+        const rot = Math.random() * Math.PI * 2;
+        explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides, rot });
+        spawnParticles(b.x, b.y, 6, '#f44', 0.4);
+        spawnParticles(b.x, b.y, 4, '#f80', 0.5);
+        sfx('explode', { intensity: 1 });
+        shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
+        for (let e of enemies) {
+          if (dist(b, e) < gsRadius + e.r) {
+            e.hp -= 3 * stuckBonus;
+            e.explodedBy = true;
+          }
+        }
+        for (let e of enemies) {
+          if (e.stuck.length > 0 && !toDetonate.includes(e) && dist(b, e) < gsRadius * 1.5) {
+            toDetonate.push(e);
+          }
+        }
+        // Remove this bullet
+        const bi = bullets.indexOf(b);
+        if (bi >= 0) bullets.splice(bi, 1);
+      }, delay);
+    });
   }
-  // Stagger detonations
-  const gsDelay = 30; // ms between each
-  shrapnelSnaps.forEach((snap, i) => {
-    setTimeout(() => {
-      const r = 40 * megaMult * overMult;
-      const sides = 5 + Math.floor(Math.random() * 4);
-      const rot = Math.random() * Math.PI * 2;
-      explosions.push({ x: snap.x, y: snap.y, r: 0, maxR: r, t: 0, dur: 0.3, sides, rot });
-      spawnParticles(snap.x, snap.y, 6, '#f44', 0.4);
-      spawnParticles(snap.x, snap.y, 4, '#f80', 0.5);
-      sfx('explode', { intensity: 1 });
-      shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
-      for (let e of enemies) {
-        if (dist(snap, e) < gsRadius + e.r) {
-          e.hp -= 3 * stuckBonus;
-          e.explodedBy = true;
-        }
-      }
-      for (let e of enemies) {
-        if (e.stuck.length > 0 && !toDetonate.includes(e) && dist(snap, e) < gsRadius * 1.5) {
-          toDetonate.push(e);
-        }
-      }
-    }, i * gsDelay);
-  });
 
   // Delay chain explode until after all shrapnel has detonated
-  const chainDelay = shrapnelSnaps.length * gsDelay;
-  if (toDetonate.length > 0 && chainDelay === 0) {
+  if (toDetonate.length > 0 && maxDelay === 0) {
     chainExplode(toDetonate, 0, stuckBonus);
-  } else if (toDetonate.length > 0 || shrapnelSnaps.length > 0) {
+  } else if (toDetonate.length > 0 || Object.keys(groups).length > 0) {
     setTimeout(() => {
       if (toDetonate.length > 0) chainExplode(toDetonate, 0, stuckBonus);
-    }, chainDelay + 50);
+    }, maxDelay + 50);
   }
 }
 
@@ -1865,7 +1888,7 @@ function drawHUD(now) {
 
       // Duration fill (pistol has no timer)
       if (item.t > 0) {
-        const frac = item.t / item.max;
+        const frac = Math.min(item.t / item.max, 1);
         ctx.fillStyle = item.color;
         ctx.globalAlpha = 0.35;
         ctx.fillRect(bx, by, barW * frac, barH);
@@ -1949,20 +1972,26 @@ function drawHUD(now) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px monospace';
   ctx.fillText('WASD: Move | Mouse: Aim & Shoot | Right-Click/X: Detonate | R: Restart', W / 2 - 250, H - 10);
 
-  // Acquired perks (small icons)
+  // Active skills (left side)
   if (perksPicked.length > 0) {
-    let hudPerkY = 40;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px monospace';
-    ctx.fillText('PERKS:', 10, hudPerkY);
-    let px = 52;
     const perkCounts = {};
     for (const pid of perksPicked) perkCounts[pid] = (perkCounts[pid] || 0) + 1;
-    for (const [pid, cnt] of Object.entries(perkCounts)) {
+    const entries = Object.entries(perkCounts);
+    const skillX = 12;
+    let skillY = 50;
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = 'bold 11px monospace';
+    ctx.fillText('SKILLS', skillX, skillY);
+    skillY += 16;
+    for (const [pid, cnt] of entries) {
       const pdef = ALL_PERKS.find(p => p.id === pid);
       if (!pdef) continue;
-      ctx.fillStyle = pdef.color; ctx.font = 'bold 9px monospace';
-      ctx.fillText(pdef.icon + (cnt > 1 ? `x${cnt}` : ''), px, hudPerkY);
-      px += (pdef.icon.length + (cnt > 1 ? 3 : 0)) * 6 + 6;
+      ctx.fillStyle = pdef.color; ctx.font = '12px monospace';
+      ctx.fillText(`${pdef.label}`, skillX, skillY);
+      if (cnt > 1) {
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(` x${cnt}`, skillX + ctx.measureText(pdef.label).width, skillY);
+      }
+      skillY += 16;
     }
   }
 
@@ -2063,11 +2092,11 @@ function drawHUD(now) {
     ctx.fillStyle = '#ff0'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
     ctx.fillText('DEBUG MENU', W / 2, baseY + 24);
     ctx.fillStyle = '#888'; ctx.font = '10px monospace';
-    ctx.fillText('ESC to close | TAB to switch | Click to apply', W / 2, baseY + 40);
+    ctx.fillText('` to close | TAB to switch | Click to apply', W / 2, baseY + 40);
     // Tabs
     const tabY = baseY + headerH;
-    const tabW = DEBUG_PANEL_W / 5;
-    for (let t = 0; t < 5; t++) {
+    const tabW = DEBUG_PANEL_W / 6;
+    for (let t = 0; t < 6; t++) {
       const tx = panelX + t * tabW;
       ctx.fillStyle = t === debugTab ? 'rgba(255,255,100,0.25)' : 'rgba(255,255,255,0.08)';
       ctx.fillRect(tx, tabY, tabW, tabH);
@@ -2099,6 +2128,16 @@ function drawHUD(now) {
           ctx.fillStyle = '#ff0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
           ctx.fillText('x' + count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
         }
+      }
+      if (items[i].enemyType) {
+        const count = enemies.filter(e => e.type === items[i].enemyType).length;
+        ctx.fillStyle = count > 0 ? '#ff0' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].toggle) {
+        const on = items[i].color !== '#888';
+        ctx.fillStyle = on ? '#4f4' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 11px monospace';
+        ctx.fillText(on ? 'ON' : 'OFF', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
     }
     ctx.textAlign = 'left';
