@@ -72,3 +72,6 @@ Todo
 
 * PERF
   1) [ ] What is the main performance bottleneck?
+
+* BUGS
+  1) [ ] Powerups don't seem to affect grenade weapon.
