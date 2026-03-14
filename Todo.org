@@ -14,6 +14,11 @@ Todo
   4) [ ] Recoil system. Some weapons push the player back and/or slow them down.
   5) [ ] Remove default magnetic powerups. This will be used as a skill.
 
+* RHYTHM, GAME LOOP
+  1) [ ] The game should have more "rhythm." Currently, it feels like just
+     nonstop waves coming at you. There should be lulls, extreme wave numbers,
+     sometimes just a few large enemies or a boss and a few minions.
+
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
