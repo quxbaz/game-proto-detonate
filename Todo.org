@@ -56,6 +56,7 @@ Todo
      lands and explodes, it creates a ring of shrapnel in random directions.
   4) [X] Minigun should fire in a random spray pattern.
   5) [X] Shotgun should have high base projectile velocity.
+  6) [ ] Reduce shrapnel count on grenade to 16.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
@@ -73,8 +74,11 @@ Todo
 * PERF
   1) [ ] What is the main performance bottleneck?
 
+* DEBUG
+
 * BUGS
   1) [ ] Powerups don't seem to affect grenade weapon.
+  2) [ ] GRENADE weapon type is doing direct damage.
 
 * SORT
   Perk to increase detonator limit. Start with 3.
