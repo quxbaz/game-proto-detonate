@@ -98,6 +98,10 @@ Todo
       toward its landing site (doesn't affect extra large enemy types). It deals
       no damage and does not create shrapnel. Units affected are slowing down by
       a rate of 0.5.
+  16) [ ] Not all weapons should be affected by skills equally. Some weapons
+      should have a threshold where they are affected. For example, GRENADE
+      should only gain a projectile count every 2 extra bullet skill points. Whereas
+      the SHOTGUN should gain 2x projectiles for every point.
 
 * DETONATORS
 
@@ -119,9 +123,12 @@ Todo
   2) [X] Remove VAMPIRIC skill.
   3) [ ] Add skill ENGINEER to increase detonator limit.
   4) [ ] Add MAGICIAN skill.
-  5) [ ] Add JUGGLER skill.
-  6) [ ] Add FAR-SEER skill. Increase powerup spawn limit.
-  7) [ ] Add MAGNETIC skill. Attract items.
+  5) [ ] Add JUGGLER skill. Picked up weapons will be queued up and used when
+     the current one expires.
+  6) [ ] Add FAR-SEER skill. This increases the powerup spawn limit
+     incrementally.
+  7) [ ] Add MAGNETIC skill. This skill attract items to you. More points
+     increase the attraction radius, diminishing exponentially.
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
