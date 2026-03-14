@@ -79,7 +79,7 @@ Todo
   1) [X] Powerups scale scale with the player's base stats when possible. For
      example, spread/multi should apply a multiplier to the current bullet
      quantity.
-  2) [ ] Add SENTRY powerup. This powerup spawns an autofiring sentry at the
+  2) [ ] Add SENTRY powerup. This powerup spawns an auto-firing sentry at the
      location of the powerup.
 
 * SKILLS
@@ -91,6 +91,7 @@ Todo
   1) [X] Make weapon items distinct from powerups.
   2) [X] Powerups and weapon item drops should have a label underneath them.
   3) [ ] Add cap to explosion radius visual effect.
+  4) [X] Show lifebars on large units.
 
 * PERF
   1) [ ] What is the main performance bottleneck?
@@ -101,12 +102,11 @@ Todo
   1) [X] Powerups don't seem to affect grenade weapon.
   2) [X] GRENADE weapon type is doing direct damage.
 
-* PRODUCITON
+* PRODUCTION
   Platforms: Switch, Steam
 
 * SORT
   Clamp pistol spread arc to 45 degrees.
-  Show life bars on large units
   Globber enemy. Consumes enemies around itself and adds to its life and size
   Glitter gun. Similar to Scattergun but has special detonation effect.
   Detonator types
