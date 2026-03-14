@@ -30,9 +30,9 @@ Todo
   6) [X] HIVE should be much tankier. It's too easy to kill.
   7) [ ] Implement RARE enemy types. Rare units are like normal units but have
      boosted stats. RARE is a modifier applied to an existing unit.
-     Differentiate the unit visually. Rare units can also have one or more perks
+     Differentiate the unit visually. Rare units can also have one or more skills
      (see below).
-  8) [ ] Implement enemy perks. Perks are modifiers to stats or abilities. For example:
+  8) [ ] Implement enemy skills. Skills are modifiers to stats or abilities. For example:
      - High durability
      - Super high durability
      - Extra speed
@@ -63,9 +63,9 @@ Todo
      example, spread/multi should apply a multiplier to the current bullet
      quantity.
 
-* PERKS
-  1) [X] Remove FAST LEARNER perk.
-  2) [X] Remove VAMPIRIC perk.
+* SKILLS
+  1) [X] Remove FAST LEARNER skill.
+  2) [X] Remove VAMPIRIC skill.
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
@@ -81,7 +81,7 @@ Todo
   2) [ ] GRENADE weapon type is doing direct damage.
 
 * SORT
-  Perk to increase detonator limit. Start with 3.
+  Skill to increase detonator limit. Start with 3.
   Add cap to explosion radius graphic.
   Grenade shrapnel should explode in sequence.
   Teleporting enemy type
