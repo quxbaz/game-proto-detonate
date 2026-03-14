@@ -89,7 +89,13 @@ scene.add(gridHelper);
 
 // ============ AUDIO ============
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const sfxThrottles = {};
 function sfx(type, opts = {}) {
+  if (type === 'stick' || type === 'explode') {
+    const t = performance.now();
+    if (t - (sfxThrottles[type] || 0) < 10) return;
+    sfxThrottles[type] = t;
+  }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   const now = audioCtx.currentTime;
   const g = audioCtx.createGain();
@@ -219,6 +225,52 @@ let paused = false;
 let debugMenu = false;
 let debugTab = 0;
 let debugNoEnemies = false;
+let debugMenuOpenedAt = 0;
+
+function saveDebugSettings() {
+  const settings = {
+    noSpawn: debugNoEnemies,
+    godMode: player.invuln > 9000,
+    weapon: player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : null,
+    perks: perksPicked.slice(),
+    powerups: {
+      spread: player.spread, rapid: player.rapid, megablast: player.megablast,
+      shield: player.shield, ricochet: player.ricochet, homing: player.homing,
+      overcharge: player.overcharge
+    }
+  };
+  localStorage.setItem('arenaDebug', JSON.stringify(settings));
+}
+
+function loadDebugSettings() {
+  const raw = localStorage.getItem('arenaDebug');
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    debugNoEnemies = s.noSpawn || false;
+    if (s.godMode) player.invuln = 99999;
+    if (s.weapon) {
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      player[s.weapon] = 99999;
+    }
+    if (s.perks && s.perks.length > 0) {
+      for (const pid of s.perks) {
+        perksPicked.push(pid);
+        if (pid === 'maxHp') { player.maxHp++; player.hp = Math.min(player.hp + 1, player.maxHp); }
+      }
+    }
+    if (s.powerups) {
+      for (const [k, v] of Object.entries(s.powerups)) {
+        if (v > 0) player[k] = v;
+      }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+function clearDebugSettings() {
+  localStorage.removeItem('arenaDebug');
+}
 
 // ============ PERK SYSTEM ============
 const ALL_PERKS = [
@@ -295,12 +347,13 @@ function getDebugItems() {
     applyPowerup(k);
     spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
   }}));
+  const activeWeapon = player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol';
   const weapons = [
-    { label: 'PISTOL', color: '#4af', action: () => {
+    { label: 'PISTOL', color: '#4af', weaponId: 'pistol', action: () => {
       player.shotgun = 0; player.minigun = 0; player.grenade = 0;
       spawnFloatingText(player.x, player.y + 30, 'PISTOL', '#4af', 18);
     }},
-    ...Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
+    ...Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, weaponId: k, action: () => {
       player.shotgun = 0; player.minigun = 0; player.grenade = 0;
       player[k] = 99999;
       spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
@@ -337,7 +390,8 @@ const DEBUG_TABS = ['WEAPONS', 'SKILLS', 'POWERUPS', 'SPAWNS', 'MODES', 'MISC'];
 const DEBUG_ITEM_H = 28;
 const DEBUG_PANEL_W = 330;
 
-function handleDebugClick(mx, my) {
+function handleDebugClick(mx, my, count) {
+  count = count || 1;
   const items = getDebugItems()[debugTab];
   const panelX = W / 2 - DEBUG_PANEL_W / 2;
   const headerH = 50;
@@ -358,11 +412,12 @@ function handleDebugClick(mx, my) {
   for (let i = 0; i < items.length; i++) {
     const iy = startItemY + i * DEBUG_ITEM_H;
     if (mx >= panelX && mx <= panelX + DEBUG_PANEL_W && my >= iy && my <= iy + DEBUG_ITEM_H) {
-      items[i].action();
+      for (let c = 0; c < count; c++) items[i].action();
       return;
     }
   }
-  // Clicked outside menu — close
+  // Clicked outside menu — close (unless just opened)
+  if (performance.now() - debugMenuOpenedAt < 100) return;
   debugMenu = false;
   paused = false;
 }
@@ -442,7 +497,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen && e.code === 'Backquote') {
     startScreen = false; init();
-    debugNoEnemies = true; debugMenu = true; paused = true;
+    debugNoEnemies = true; debugMenu = true; paused = true; spawnEnemy('dummy');
     document.documentElement.requestFullscreen().catch(()=>{});
     return;
   }
@@ -476,9 +531,17 @@ document.addEventListener('mousemove', e => {
   mouse.sy = e.clientY;
 });
 document.addEventListener('mousedown', e => {
+  if (e.button === 2 && startScreen) {
+    e.preventDefault();
+    startScreen = false; init();
+    debugNoEnemies = true; debugMenu = true; paused = true; spawnEnemy('dummy');
+    debugMenuOpenedAt = performance.now();
+    document.documentElement.requestFullscreen().catch(()=>{});
+    return;
+  }
   if (e.button === 0) {
-    if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{}); return; }
-    if (debugMenu) { handleDebugClick(e.clientX, e.clientY); return; }
+    if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{});  return; }
+    if (debugMenu) { handleDebugClick(e.clientX, e.clientY, 1); return; }
     if (paused) { paused = false; return; }
     if (perkChoices) {
       // Check if clicking a perk card
@@ -605,7 +668,10 @@ function spawnEnemy(forceType) {
   // Spawn location
   const angle = Math.random() * Math.PI * 2;
   let sx, sy;
-  if (type === 'hive' || type === 'dummy') {
+  if (type === 'dummy') {
+    sx = ARENA_R * 0.5;
+    sy = 0;
+  } else if (type === 'hive') {
     // Spawn inside arena, away from player
     const spawnR = 200 + Math.random() * (ARENA_R - 300);
     sx = Math.cos(angle) * spawnR;
@@ -703,7 +769,7 @@ function update(dt) {
   // Weapon powerup overrides
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
   if (player.grenade > 0) { wRate = 0.7; }
-  else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.35; }
+  else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.18; }
   else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 900; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
@@ -748,31 +814,35 @@ function update(dt) {
     const shotgunBonus = player.shotgun > 0 ? 2 : 1;
     const baseCount = wCount + extraShots * shotgunBonus;
 
-    function fireBullet(angle) {
+    function fireBullet(angle, dispersed) {
       const fa = angle + (wSpreadArc > 0 && wCount <= 1 ? (Math.random() - 0.5) * wSpreadArc : 0);
+      const spawnDist = dispersed ? 16 + Math.random() * 20 : 16;
+      const spdVar = dispersed ? bspd * (0.8 + Math.random() * 0.4) : bspd;
       bullets.push({
-        x: player.x + Math.cos(fa) * 16, y: player.y + Math.sin(fa) * 16,
-        r: bRadius, vx: Math.cos(fa) * bspd, vy: Math.sin(fa) * bspd, mega
+        x: player.x + Math.cos(fa) * spawnDist, y: player.y + Math.sin(fa) * spawnDist,
+        r: bRadius, vx: Math.cos(fa) * spdVar, vy: Math.sin(fa) * spdVar, mega
       });
     }
 
-    if (player.spread > 0) {
+    if (wCount > 1) {
+      // Shotgun-style dispersed (spread doubles pellets)
+      const shotCount = player.spread > 0 ? baseCount * 2 : baseCount;
+      for (let i = 0; i < shotCount; i++) {
+        const sa = a + (Math.random() - 0.5) * wSpreadArc;
+        fireBullet(sa, true);
+      }
+    } else if (player.spread > 0) {
       const spreadCount = baseCount * 3;
-      const totalArc = 0.4 + wSpreadArc;
+      const totalArc = Math.min(0.4 + wSpreadArc, player.minigun > 0 ? 0.4 : 1.2);
       for (let i = 0; i < spreadCount; i++) {
         const sa = a + (i / (spreadCount - 1) - 0.5) * totalArc;
         fireBullet(sa);
       }
-    } else if (wCount > 1) {
-      // Shotgun-style fan
-      for (let i = 0; i < baseCount; i++) {
-        const sa = a + (i / (baseCount - 1) - 0.5) * wSpreadArc;
-        fireBullet(sa);
-      }
     } else {
-      fireBullet(a);
-      for (let ms = 0; ms < extraShots; ms++) {
-        const offset = (ms + 1) * 0.08 * (ms % 2 === 0 ? 1 : -1);
+      const maxArc = player.minigun > 0 ? 0.5 : 0.8;
+      const totalShots = 1 + extraShots;
+      for (let ms = 0; ms < totalShots; ms++) {
+        const offset = (Math.random() - 0.5) * maxArc;
         fireBullet(a + offset);
       }
     }
@@ -1317,6 +1387,7 @@ function chainExplode(initialEnemies, depth, stuckBonus) {
 
 // ============ RIGHT-CLICK DETONATE (single listener) ============
 document.addEventListener('mousedown', e => {
+  if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, 10); return; }
   if (e.button === 2 && !gameOver) triggerDetonation();
 });
 
@@ -1370,9 +1441,7 @@ const dummyColor = new THREE.Color();
 // ============ 3D DRAW ============
 function draw3D(now) {
   // Camera follows player with shake
-  const shakeX = shakeTimer > 0 ? (Math.random() - 0.5) * shakeIntensity * 2 : 0;
-  const shakeY = shakeTimer > 0 ? (Math.random() - 0.5) * shakeIntensity * 2 : 0;
-  camera.position.set(player.x + shakeX, player.y + shakeY, 500);
+  camera.position.set(player.x, player.y, 500);
   camera.lookAt(player.x, player.y, 0);
 
   // Player
@@ -1532,6 +1601,21 @@ function draw3D(now) {
 
   // Grenades
   for (let g of grenades) {
+    // Ground shadow
+    const shadowKey = 'gshadow_' + g.gid;
+    const shadow = getOrCreateMesh({ _id: shadowKey }, () => {
+      const sm = new THREE.Mesh(
+        new THREE.CircleGeometry(8, 12),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+      );
+      sm.rotation.x = 0;
+      return sm;
+    });
+    shadow.position.set(g.x, g.y, 0.5);
+    const shadowScale = 1 - (g.z / 60) * 0.3;
+    shadow.scale.setScalar(shadowScale);
+    shadow.material.opacity = 0.3 * (1 - g.z / 60);
+
     const mesh = getOrCreateMesh(g, () => {
       const group = new THREE.Group();
       const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
@@ -1541,7 +1625,12 @@ function draw3D(now) {
       group.add(ring);
       return group;
     });
+    const frac = Math.min(g.t / g.dur, 1);
+    const lobScale = 1 + 0.5 * Math.sin(frac * Math.PI);
     mesh.position.set(g.x, g.y, g.z || 0);
+    mesh.scale.setScalar(lobScale);
+    mesh.rotation.z = frac * Math.PI * 4;
+    mesh.rotation.x = frac * Math.PI * 3;
     const gring = mesh.getObjectByName('gring');
     if (gring) { gring.rotation.z = now * 0.01; gring.rotation.x = now * 0.007; }
   }
@@ -1568,6 +1657,9 @@ function draw3D(now) {
       return new THREE.Mesh(bulletGeo, bulletMat);
     });
     mesh.position.set(b.x, b.y, 4);
+    if (!b.shrapnel && !b.mega) {
+      mesh.scale.setScalar(b.r / 4);
+    }
     if (b.shrapnel) {
       const pulse = 0.6 + 0.4 * Math.sin(now * 0.012 + b.x);
       mesh.scale.setScalar(0.8 + pulse * 0.3);
@@ -2133,6 +2225,13 @@ function drawHUD(now) {
         const count = enemies.filter(e => e.type === items[i].enemyType).length;
         ctx.fillStyle = count > 0 ? '#ff0' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
         ctx.fillText(count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].weaponId) {
+        const active = (player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol') === items[i].weaponId;
+        if (active) {
+          ctx.fillStyle = '#4f4'; ctx.textAlign = 'right'; ctx.font = 'bold 11px monospace';
+          ctx.fillText('ACTIVE', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        }
       }
       if (items[i].toggle) {
         const on = items[i].color !== '#888';
