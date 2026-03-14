@@ -418,7 +418,7 @@ function handleDebugClick(mx, my, count) {
     perksPicked = [];
     player.maxHp = 5; player.hp = Math.min(player.hp, player.maxHp);
     debugNoEnemies = false;
-    enemies.length = 0;
+    for (let ei = enemies.length - 1; ei >= 0; ei--) { if (enemies[ei].type !== 'dummy') enemies.splice(ei, 1); }
     spawnFloatingText(player.x, player.y + 30, 'SETTINGS CLEARED', '#f44', 18);
     return;
   }
@@ -882,7 +882,7 @@ function update(dt) {
       }
     } else if (player.spread > 0) {
       const spreadCount = baseCount * 3;
-      const totalArc = Math.min(0.4 + wSpreadArc, player.minigun > 0 ? 0.4 : 1.2);
+      const totalArc = Math.min(0.4 + wSpreadArc, player.minigun > 0 ? 0.4 : Math.PI / 4);
       for (let i = 0; i < spreadCount; i++) {
         const sa = a + (i / (spreadCount - 1) - 0.5) * totalArc;
         fireBullet(sa);
@@ -895,9 +895,11 @@ function update(dt) {
         fireBullet(a + offset);
       }
     } else {
-      fireBullet(a);
-      for (let ms = 0; ms < extraShots; ms++) {
-        const offset = (ms + 1) * 0.08 * (ms % 2 === 0 ? 1 : -1);
+      const totalShots = 1 + extraShots;
+      const maxArc = Math.PI / 4;
+      const arc = Math.min(extraShots * 0.08 * 2, maxArc);
+      for (let ms = 0; ms < totalShots; ms++) {
+        const offset = totalShots > 1 ? (ms / (totalShots - 1) - 0.5) * arc : 0;
         fireBullet(a + offset);
       }
     }
