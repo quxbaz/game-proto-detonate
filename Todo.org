@@ -77,13 +77,12 @@ Todo
 * DEBUG
 
 * BUGS
-  1) [ ] Powerups don't seem to affect grenade weapon.
-  2) [ ] GRENADE weapon type is doing direct damage.
+  1) [X] Powerups don't seem to affect grenade weapon.
+  2) [X] GRENADE weapon type is doing direct damage.
 
 * SORT
-  Skill to increase detonator limit. Start with 3.
+  Skill to increase detonator limit. Start with 5.
   Add cap to explosion radius graphic.
-  Grenade shrapnel should explode in sequence.
   Teleporting enemy type
   Sentry weapon
   Bug weapon. Jumps from enemy to enemy.
