@@ -356,7 +356,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen) return;
   if (e.code === 'KeyR' && gameOver) init();
-  if (e.code === 'Escape' && !gameOver && !startScreen && !perkChoices) paused = !paused;
+  if (e.code === 'Escape' && !e.repeat && !gameOver && !startScreen && !perkChoices) paused = !paused;
   // Perk selection with 1/2/3
   if (perkChoices) {
     if (e.code === 'Digit1') selectPerk(0);
@@ -365,6 +365,9 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && !gameOver && !startScreen && !perkChoices) paused = true;
+});
 document.addEventListener('mousemove', e => {
   mouse.sx = e.clientX; // raw screen coords
   mouse.sy = e.clientY;
@@ -606,23 +609,38 @@ function update(dt) {
     const mouseWorldY = player.y - (mouse.sy - H / 2);
     const gdx = mouseWorldX - player.x, gdy = mouseWorldY - player.y;
     const gDist = Math.sqrt(gdx * gdx + gdy * gdy);
-    const travelTime = Math.max(0.15, Math.min(gDist / 600, 0.6));
-    grenades.push({
-      x: player.x, y: player.y,
-      sx: player.x, sy: player.y,
-      tx: mouseWorldX, ty: mouseWorldY,
-      t: 0, dur: travelTime, r: 6, z: 0
-    });
-    shootCooldown = wRate / perkFireMult;
+    const gAngle = Math.atan2(gdy, gdx);
+    const extraShots = getPerkCount('multishot');
+    const gBase = player.spread > 0 ? 3 : 1;
+    const gCount = gBase + extraShots;
+    const gArc = gCount > 1 ? 0.3 + extraShots * 0.08 : 0;
+    const gSpeedMult = 1 + getPerkCount('bulletSpeed') * 0.2;
+    const gSizeMult = 1 + getPerkCount('bulletSize') * 0.25;
+    for (let gi = 0; gi < gCount; gi++) {
+      const offset = gCount > 1 ? (gi / (gCount - 1) - 0.5) * gArc : 0;
+      const a2 = gAngle + offset;
+      const tx = player.x + Math.cos(a2) * gDist;
+      const ty = player.y + Math.sin(a2) * gDist;
+      const travelTime = Math.max(0.15, Math.min(gDist / (600 * gSpeedMult), 0.6));
+      grenades.push({
+        x: player.x, y: player.y,
+        sx: player.x, sy: player.y,
+        tx: tx, ty: ty,
+        t: 0, dur: travelTime, r: 6 * gSizeMult, z: 0
+      });
+    }
+    shootCooldown = fireRate;
     sfx('shoot');
   } else if (mouse.down && shootCooldown <= 0 && player.grenade <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
     const bspd = wSpeed * (1 + getPerkCount('bulletSpeed') * 0.2);
     const baseBr = player.megablast > 0 ? wSize * 2 : wSize;
-    const bRadius = baseBr * (1 + getPerkCount('bulletSize') * 0.25);
+    const bSizeMult = player.shotgun > 0 ? 0.5 : 0.25;
+    const bRadius = baseBr * (1 + getPerkCount('bulletSize') * bSizeMult);
     const mega = player.megablast > 0;
     const extraShots = getPerkCount('multishot');
-    const baseCount = wCount + extraShots;
+    const shotgunBonus = player.shotgun > 0 ? 2 : 1;
+    const baseCount = wCount + extraShots * shotgunBonus;
 
     function fireBullet(angle) {
       const fa = angle + (wSpreadArc > 0 && wCount <= 1 ? (Math.random() - 0.5) * wSpreadArc : 0);
@@ -670,18 +688,22 @@ function update(dt) {
       // Explode: shrapnel ring
       const shrapnelCount = 24 + Math.floor(getPerkCount('shrapnel') * 6);
       const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
-      for (let s = 0; s < shrapnelCount && bullets.length < MAX_BULLETS; s++) {
-        const angle = (Math.PI * 2 / shrapnelCount) * s + (Math.random() - 0.5) * 0.4;
-        const spd2 = 160 + Math.random() * 140;
-        bullets.push({ x: g.x, y: g.y, r: 3, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true });
+      const gMegaMult = player.megablast > 0 ? 2 : 1;
+      const gOverMult = player.overcharge > 0 ? 1.8 : 1;
+      for (let s = 0; s < shrapnelCount * gMegaMult && bullets.length < MAX_BULLETS; s++) {
+        const angle = (Math.PI * 2 / (shrapnelCount * gMegaMult)) * s + (Math.random() - 0.5) * 0.4;
+        const spd2 = (160 + Math.random() * 140) * gOverMult;
+        const sr = 3 * (player.megablast > 0 ? 1.5 : 1);
+        bullets.push({ x: g.x, y: g.y, r: sr, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true });
       }
       // Explosion visual
       const sides = 5 + Math.floor(Math.random() * 4);
       const rot = Math.random() * Math.PI * 2;
-      explosions.push({ x: g.x, y: g.y, r: 0, maxR: 50 * blastPerk, t: 0, dur: 0.4, sides, rot });
+      explosions.push({ x: g.x, y: g.y, r: 0, maxR: 50 * blastPerk * gMegaMult * gOverMult, t: 0, dur: 0.4, sides, rot });
       // Damage nearby enemies
+      const gBlastRange = 60 * blastPerk * gMegaMult * gOverMult;
       for (let e of enemies) {
-        if (dist(g, e) < 60 * blastPerk + e.r) {
+        if (dist(g, e) < gBlastRange + e.r) {
           e.stuck.push({ ox: (Math.random() - 0.5) * e.r, oy: (Math.random() - 0.5) * e.r, pulseT: 0 });
         }
       }
@@ -1087,40 +1109,55 @@ function triggerDetonation() {
     spawnFloatingText(avgX, avgY + 30, `DETONATE +${flatBonus}`, col, stuckBonus > 1 ? 20 : 14);
   }
 
-  // Detonate grenade shrapnel in the field
+  // Detonate grenade shrapnel in sequence with tiny intervals
   const megaMult = player.megablast > 0 ? 2 : 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
   const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
+  // Snapshot shrapnel positions and remove bullets immediately
+  const shrapnelSnaps = [];
   for (let idx of grenadeShrapnelBullets) {
     const b = bullets[idx];
-    if (!b) continue;
-    const r = 40 * megaMult * overMult;
-    const sides = 5 + Math.floor(Math.random() * 4);
-    const rot = Math.random() * Math.PI * 2;
-    explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides, rot });
-    spawnParticles(b.x, b.y, 6, '#f44', 0.4);
-    spawnParticles(b.x, b.y, 4, '#f80', 0.5);
-    // Damage nearby enemies
-    for (let e of enemies) {
-      if (dist(b, e) < gsRadius + e.r) {
-        e.hp -= 3 * stuckBonus;
-        e.explodedBy = true;
-      }
-    }
-    // Chain: pull nearby stuck enemies into detonation
-    for (let e of enemies) {
-      if (e.stuck.length > 0 && !toDetonate.includes(e) && dist(b, e) < gsRadius * 1.5) {
-        toDetonate.push(e);
-      }
-    }
+    if (b) shrapnelSnaps.push({ x: b.x, y: b.y });
   }
-  // Remove grenade shrapnel bullets (reverse order to preserve indices)
   for (let idx of grenadeShrapnelBullets) {
     if (idx < bullets.length) bullets.splice(idx, 1);
   }
+  // Stagger detonations
+  const gsDelay = 30; // ms between each
+  shrapnelSnaps.forEach((snap, i) => {
+    setTimeout(() => {
+      const r = 40 * megaMult * overMult;
+      const sides = 5 + Math.floor(Math.random() * 4);
+      const rot = Math.random() * Math.PI * 2;
+      explosions.push({ x: snap.x, y: snap.y, r: 0, maxR: r, t: 0, dur: 0.3, sides, rot });
+      spawnParticles(snap.x, snap.y, 6, '#f44', 0.4);
+      spawnParticles(snap.x, snap.y, 4, '#f80', 0.5);
+      sfx('explode', { intensity: 1 });
+      shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
+      for (let e of enemies) {
+        if (dist(snap, e) < gsRadius + e.r) {
+          e.hp -= 3 * stuckBonus;
+          e.explodedBy = true;
+        }
+      }
+      for (let e of enemies) {
+        if (e.stuck.length > 0 && !toDetonate.includes(e) && dist(snap, e) < gsRadius * 1.5) {
+          toDetonate.push(e);
+        }
+      }
+    }, i * gsDelay);
+  });
 
-  if (toDetonate.length > 0) chainExplode(toDetonate, 0, stuckBonus);
+  // Delay chain explode until after all shrapnel has detonated
+  const chainDelay = shrapnelSnaps.length * gsDelay;
+  if (toDetonate.length > 0 && chainDelay === 0) {
+    chainExplode(toDetonate, 0, stuckBonus);
+  } else if (toDetonate.length > 0 || shrapnelSnaps.length > 0) {
+    setTimeout(() => {
+      if (toDetonate.length > 0) chainExplode(toDetonate, 0, stuckBonus);
+    }, chainDelay + 50);
+  }
 }
 
 function chainExplode(initialEnemies, depth, stuckBonus) {
