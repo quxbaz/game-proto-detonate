@@ -11,12 +11,13 @@ Todo
      weapons, so they're not affected by those particular limits.
   2) [ ] Waves should last longer and each wave should have a theme.
   3) [ ] Start with 5 detonators.
+  4) [ ] Recoil system. Some weapons push the player back and/or slow them down.
 
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
 
-* SPAWN TYPES
+* SPAWNS
   1) [X] Add SPAWNER spawn type. This particular unit is slow and tanky. It
      spawns units around itself until it's destroyed.
   2) [X] Add RUNNER spawn type. This unit is weak but moves more quickly than
@@ -48,6 +49,16 @@ Todo
      wake. It has moderately fast walk speed. Fire trail cannot be damaged. It
      goes away after N seconds.
   10) [ ] Add TELEPORTER spawn type. This units moves by short teleportations.
+  11) [ ] Add GLOBBER spawn. This unit consumes small spawns around itself,
+      adding to its life and size. The life added is a multiplier of the unit
+      consumed.
+  12) [ ] Add DASHER spawn type. This unit has the ability to dash towards the
+      player when it gets close.
+  13) [ ] ADD CHAMPION spawn type. This is a powerful combat unit that will
+      resurrect once upon death. When it dies, its laid to rest briefly. An
+      animation and effect occurs where the unit is revived.
+  14) [ ] Add HYDRA spawn type. This is a unit that immediately splits into two
+      upon death. The HYDRA can split twice before dying permanently.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
@@ -65,15 +76,29 @@ Todo
   8) [ ] Add SCATTERGUN. This is a rapid-firing, short-range weapon with wide
      spread and large bullets. The bullets are slow-moving and expire after a
      brief period of time.
-  10) [ ] Add SABER melee weapon. Melee weapons are a new class of weapon that
-      deal direct damage to enemies. The SABER has a secondary effect where it
-      "charges" an enemy with an incremental "charge count." When a charged
-      enemy dies, it detonates nearby shrapnel and other charged enemies for
-      damage. Each charge stack deals additional damage. Charged enemies should
-      glow yellow. Show the charge count also on top of the enemy. CHARGE is a
-      unique mechanic that will be reused.
-  11) [ ] Add HALBERD melee weapon.
-  12) [ ] Add LANCE melee weapon.
+  9) [ ] Add SABER melee weapon. Melee weapons are a new class of weapon that
+     deal direct damage to enemies. The SABER has a secondary effect where it
+     "charges" an enemy with an incremental "charge count." When a charged
+     enemy dies, it detonates nearby shrapnel and other charged enemies for
+     damage. Each charge stack deals additional damage. Charged enemies should
+     glow yellow. Show the charge count also on top of the enemy. CHARGE is a
+     unique mechanic that will be reused.
+  10) [ ] Add HALBERD melee weapon.
+  11) [ ] Add LANCE melee weapon.
+  12) [X] Clamp pistol spread arc to 45 degrees.
+  13) [ ] Add GLITTER GUN. This fires ballistically similar to the SCATTERGUN,
+      but fires special slowing bullets. The bullets have a special detonation
+      effect where affected units "burn" for damage over time permanently until
+      they die.
+  14) [ ] Add FLARE weapon. This is a powerful weapon with 3 charges. It's a
+      rare projectile weapon that deals DIRECT DAMAGE. The weapon fires a large
+      projectile that deals tremendous damage to any enemy unit in its path.
+  15) [ ] Add GRAVITY gun. This lobbing weapon (like the grenade) pulls units
+      toward its landing site (doesn't affect extra large enemy types). It deals
+      no damage and does not create shrapnel. Units affected are slowing down by
+      a rate of 0.5.
+
+* DETONATORS
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
@@ -81,6 +106,12 @@ Todo
      quantity.
   2) [ ] Add SENTRY powerup. This powerup spawns an auto-firing sentry at the
      location of the powerup.
+  3) [ ] ADD PHASE powerup. This powerup allows you to walk through enemies
+     without taking damage.
+  4) [ ] Make SHIELD permanent. SHIELD protects you from damage for a single hit.
+  5) [ ] Add BARBS powerup. This powerup slows down any enemies affected by
+     attached shrapnel (only when fired when BARBS was active, not affecting
+     existing shrapnel).
 
 * SKILLS
   1) [X] Remove FAST LEARNER skill.
@@ -104,19 +135,3 @@ Todo
 
 * PRODUCTION
   Platforms: Switch, Steam
-
-* SORT
-  Clamp pistol spread arc to 45 degrees.
-  Globber spawn. Consumes enemies around itself and adds to its life and size
-  Glitter gun. Similar to Scattergun but has special detonation effect.
-  Detonator types
-  Recoil system.
-  Dasher spawn. Moves in quick dashes.
-  Spawn type. Resurrects on death.
-  Spawn type. Splits on death.
-  Phase power up. Walk through enemies without damage.
-  Shield is permanent. Goes away after taking hit.
-  Flare. Direct damage. 1 round.
-  Gravity gun. Pulls units to explosion.
-  Debilitating ammo. Crippling powerup.
-  Improve shotgun.
