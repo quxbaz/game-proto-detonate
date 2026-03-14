@@ -75,3 +75,31 @@ Todo
 
 * BUGS
   1) [ ] Powerups don't seem to affect grenade weapon.
+
+* SORT
+  Perk to increase detonator limit. Start with 3.
+  Add cap to explosion radius graphic.
+  Grenade shrapnel should explode in sequence.
+  Teleporting enemy type
+  Sentry weapon
+  Bug weapon. Jumps from enemy to enemy.
+  Scattergun. Short range weapon that sprays shrapnel.
+  Lobbing animation for grenade
+  Switch and Steam port
+  Saber, charges enemies
+  Halberd
+  Lance
+  Show life bars on large units
+  Globber enemy. Consumes enemies around itself and adds to its life and size
+  Glitter gun. Similar to Scattergun but has special detonation effect.
+  Detonator types
+  Recoil system.
+  Dasher enemy. Moves in quick dashes.
+  Enemy type. Resurrects on death.
+  Enemy type. Splits on death.
+  Phase power up. Walk through enemies without damage.
+  Shield is permanent. Goes away after taking hit.
+  Flare. Direct damage. 1 round.
+  Gravity gun. Pulls units to explosion.
+  Debilitating ammo. Crippling powerup.
+  Improve shotgun.
