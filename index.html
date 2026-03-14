@@ -228,6 +228,8 @@ let debugNoEnemies = false;
 let debugMenuOpenedAt = 0;
 
 function saveDebugSettings() {
+  const spawnCounts = {};
+  for (const e of enemies) spawnCounts[e.type] = (spawnCounts[e.type] || 0) + 1;
   const settings = {
     noSpawn: debugNoEnemies,
     godMode: player.invuln > 9000,
@@ -237,7 +239,8 @@ function saveDebugSettings() {
       spread: player.spread, rapid: player.rapid, megablast: player.megablast,
       shield: player.shield, ricochet: player.ricochet, homing: player.homing,
       overcharge: player.overcharge
-    }
+    },
+    spawns: spawnCounts
   };
   localStorage.setItem('arenaDebug', JSON.stringify(settings));
 }
@@ -262,6 +265,11 @@ function loadDebugSettings() {
     if (s.powerups) {
       for (const [k, v] of Object.entries(s.powerups)) {
         if (v > 0) player[k] = v;
+      }
+    }
+    if (s.spawns) {
+      for (const [type, count] of Object.entries(s.spawns)) {
+        for (let i = 0; i < count; i++) spawnEnemy(type);
       }
     }
     return true;
@@ -394,9 +402,26 @@ function handleDebugClick(mx, my, count) {
   count = count || 1;
   const items = getDebugItems()[debugTab];
   const panelX = W / 2 - DEBUG_PANEL_W / 2;
-  const headerH = 50;
+  const headerH = 70;
   const tabH = 30;
   const baseY = H * 0.2;
+  // Clear settings button
+  const clearBtnW = 170, clearBtnH = 24;
+  const clearBtnX = W / 2 - clearBtnW / 2, clearBtnY = baseY + 38;
+  if (mx >= clearBtnX && mx <= clearBtnX + clearBtnW && my >= clearBtnY && my <= clearBtnY + clearBtnH) {
+    clearDebugSettings();
+    // Reset current state
+    player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+    player.spread = 0; player.rapid = 0; player.megablast = 0;
+    player.shield = 0; player.ricochet = 0; player.homing = 0; player.overcharge = 0;
+    player.invuln = 0;
+    perksPicked = [];
+    player.maxHp = 5; player.hp = Math.min(player.hp, player.maxHp);
+    debugNoEnemies = false;
+    enemies.length = 0;
+    spawnFloatingText(player.x, player.y + 30, 'SETTINGS CLEARED', '#f44', 18);
+    return;
+  }
   const tabY = baseY + headerH;
   const tabW = DEBUG_PANEL_W / 6;
   // Tab clicks
@@ -413,6 +438,7 @@ function handleDebugClick(mx, my, count) {
     const iy = startItemY + i * DEBUG_ITEM_H;
     if (mx >= panelX && mx <= panelX + DEBUG_PANEL_W && my >= iy && my <= iy + DEBUG_ITEM_H) {
       for (let c = 0; c < count; c++) items[i].action();
+      saveDebugSettings();
       return;
     }
   }
@@ -443,6 +469,8 @@ const WEAPON_DROP_DEFS = {
   minigun:   { label: 'MINIGUN',  color: '#ff4', dur: 10 },
   grenade:   { label: 'GRENADE',  color: '#4f4', dur: 12 },
 };
+
+let shootCooldown = 0;
 
 function init() {
   // Clean up 3D objects
@@ -487,6 +515,7 @@ function init() {
   perksPicked = [];
   levelUpTimer = 0;
   pendingPerks = false;
+  shootCooldown = 0;
 }
 
 init();
@@ -497,7 +526,8 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen && e.code === 'Backquote') {
     startScreen = false; init();
-    debugNoEnemies = true; debugMenu = true; paused = true; spawnEnemy('dummy');
+    debugMenu = true; paused = true;
+    if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     document.documentElement.requestFullscreen().catch(()=>{});
     return;
   }
@@ -531,10 +561,28 @@ document.addEventListener('mousemove', e => {
   mouse.sy = e.clientY;
 });
 document.addEventListener('mousedown', e => {
+  if (e.button === 1) {
+    e.preventDefault();
+    if (startScreen) {
+      startScreen = false; init();
+      debugMenu = true; paused = true;
+      if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
+      debugMenuOpenedAt = performance.now();
+      document.documentElement.requestFullscreen().catch(()=>{});
+      return;
+    }
+    if (!gameOver && !perkChoices) {
+      debugMenu = !debugMenu;
+      paused = debugMenu;
+      if (debugMenu) debugMenuOpenedAt = performance.now();
+    }
+    return;
+  }
   if (e.button === 2 && startScreen) {
     e.preventDefault();
     startScreen = false; init();
-    debugNoEnemies = true; debugMenu = true; paused = true; spawnEnemy('dummy');
+    debugMenu = true; paused = true;
+    if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     debugMenuOpenedAt = performance.now();
     document.documentElement.requestFullscreen().catch(()=>{});
     return;
@@ -563,8 +611,6 @@ document.addEventListener('mousedown', e => {
 });
 document.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 document.addEventListener('contextmenu', e => e.preventDefault());
-
-let shootCooldown = 0;
 
 // ============ HELPERS ============
 function dist(a, b) {
@@ -838,11 +884,17 @@ function update(dt) {
         const sa = a + (i / (spreadCount - 1) - 0.5) * totalArc;
         fireBullet(sa);
       }
-    } else {
-      const maxArc = player.minigun > 0 ? 0.5 : 0.8;
+    } else if (player.minigun > 0) {
+      const maxArc = 0.5;
       const totalShots = 1 + extraShots;
       for (let ms = 0; ms < totalShots; ms++) {
         const offset = (Math.random() - 0.5) * maxArc;
+        fireBullet(a + offset);
+      }
+    } else {
+      fireBullet(a);
+      for (let ms = 0; ms < extraShots; ms++) {
+        const offset = (ms + 1) * 0.08 * (ms % 2 === 0 ? 1 : -1);
         fireBullet(a + offset);
       }
     }
@@ -2177,14 +2229,22 @@ function drawHUD(now) {
     ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
     const items = getDebugItems()[debugTab];
     const panelX = W / 2 - DEBUG_PANEL_W / 2;
-    const headerH = 50;
+    const headerH = 70;
     const tabH = 30;
     const baseY = H * 0.2;
     // Title
     ctx.fillStyle = '#ff0'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
     ctx.fillText('DEBUG MENU', W / 2, baseY + 24);
-    ctx.fillStyle = '#888'; ctx.font = '10px monospace';
-    ctx.fillText('` to close | TAB to switch | Click to apply', W / 2, baseY + 40);
+    // Clear settings button
+    const clearBtnW = 170, clearBtnH = 24;
+    const clearBtnX = W / 2 - clearBtnW / 2, clearBtnY = baseY + 38;
+    const clearHover = mouse.sx >= clearBtnX && mouse.sx <= clearBtnX + clearBtnW && mouse.sy >= clearBtnY && mouse.sy <= clearBtnY + clearBtnH;
+    ctx.fillStyle = clearHover ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+    ctx.fillRect(clearBtnX, clearBtnY, clearBtnW, clearBtnH);
+    ctx.strokeStyle = clearHover ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+    ctx.strokeRect(clearBtnX, clearBtnY, clearBtnW, clearBtnH);
+    ctx.fillStyle = clearHover ? '#fff' : '#888'; ctx.font = '10px monospace';
+    ctx.fillText('CLEAR DEBUG SETTINGS', W / 2, clearBtnY + 16);
     // Tabs
     const tabY = baseY + headerH;
     const tabW = DEBUG_PANEL_W / 6;
