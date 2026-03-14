@@ -606,6 +606,8 @@ document.addEventListener('mousedown', e => {
       }
     } else {
       mouse.down = true;
+      mouse.clicked = true;
+      shootCooldown = 0;
     }
   }
 });
@@ -820,7 +822,7 @@ function update(dt) {
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
   shootCooldown -= dt;
-  if (mouse.down && shootCooldown <= 0 && player.grenade > 0) {
+  if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade > 0) {
     // Lob grenade toward reticle
     const mouseWorldX = player.x + (mouse.sx - W / 2);
     const mouseWorldY = player.y - (mouse.sy - H / 2);
@@ -849,7 +851,7 @@ function update(dt) {
     }
     shootCooldown = fireRate;
     sfx('shoot');
-  } else if (mouse.down && shootCooldown <= 0 && player.grenade <= 0 && bullets.length < MAX_BULLETS) {
+  } else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
     const bspd = wSpeed * (1 + getPerkCount('bulletSpeed') * 0.2);
     const baseBr = player.megablast > 0 ? wSize * 2 : wSize;
@@ -1287,6 +1289,7 @@ function update(dt) {
   }
 
   if (shakeTimer > 0) shakeTimer -= dt;
+  mouse.clicked = false;
 }
 
 // ============ DETONATION ============
