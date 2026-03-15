@@ -1592,13 +1592,14 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
 function triggerSaberRepel() {
   if (player.saberRepelCD > 0) return;
   player.saberRepelCD = 5;
-  const repelRadius = 220;
+  const repelRadius = 190;
   const repelForce = 2000;
   sfx('explode', { intensity: 0.5 });
   spawnParticles(player.x, player.y, 20, '#0ff', 0.4);
   explosions.push({ x: player.x, y: player.y, r: 0, maxR: repelRadius, t: 0, dur: 0.2, repel: true });
   for (let e of enemies) {
     if (e.hp <= 0) continue;
+    if ((e.sizeClass || 0) >= 3) continue;
     const dx = e.x - player.x, dy = e.y - player.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d > repelRadius + e.r) continue;
@@ -2591,9 +2592,14 @@ function drawHUD(now) {
       ctx.fillText(Math.ceil(cd) + 's', px, py + 52);
       ctx.textAlign = 'left';
     } else {
-      ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+      const glow = 0.5 + 0.5 * Math.sin(now * 0.004);
+      ctx.shadowColor = '#0ff';
+      ctx.shadowBlur = 4 + glow * 4;
+      ctx.strokeStyle = `rgba(0,255,255,${0.5 + glow * 0.2})`;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(px, py, 40, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
     }
   } else {
     ctx.strokeStyle = 'rgba(255,60,40,0.9)';
