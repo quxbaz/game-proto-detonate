@@ -818,7 +818,7 @@ function update(dt) {
   const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
   // Weapon powerup overrides
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
-  if (player.saber > 0) { wRate = 0.25; }
+  if (player.saber > 0) { wRate = 0.18; }
   else if (player.grenade > 0) { wRate = 0.7; }
   else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.18; }
   else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 900; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
@@ -827,9 +827,9 @@ function update(dt) {
   shootCooldown -= dt;
   // Saber melee attack
   if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.saber > 0) {
-    const saberRange = 60;
-    const saberArc = Math.PI / 2; // 90 degree swing
-    const saberDmg = 8;
+    const saberRange = 140;
+    const saberArc = Math.PI * 0.5; // 90 degree swing
+    const saberDmg = 12;
     const a = player.angle;
     player.saberSwingT = 0.2;
     player.saberSwingAngle = a;
@@ -1553,7 +1553,7 @@ function draw3D(now) {
   // Saber swing arc visual
   if (player.saberSwingT > 0) {
     const swingMesh = getOrCreateMesh(saberSwingKey, () => {
-      const geo = new THREE.RingGeometry(20, 60, 12, 1, -Math.PI / 4, Math.PI / 2);
+      const geo = new THREE.RingGeometry(20, 140, 16, 1, -Math.PI * 0.25, Math.PI * 0.5);
       const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
       return new THREE.Mesh(geo, mat);
     });
@@ -2209,7 +2209,7 @@ function drawHUD(now) {
         ctx.fillText(count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
       if (items[i].weaponId) {
-        const active = (player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol') === items[i].weaponId;
+        const active = (player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol') === items[i].weaponId;
         if (active) {
           ctx.fillStyle = '#4f4'; ctx.textAlign = 'right'; ctx.font = 'bold 11px monospace';
           ctx.fillText('ACTIVE', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
