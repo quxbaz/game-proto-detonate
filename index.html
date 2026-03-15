@@ -227,6 +227,7 @@ let debugMenu = false;
 let debugTab = 0;
 let debugNoEnemies = false;
 let debugMode = false;
+let debugNoDrops = false;
 let debugMenuOpenedAt = 0;
 
 function saveDebugSettings() {
@@ -242,7 +243,8 @@ function saveDebugSettings() {
       shield: player.shield, ricochet: player.ricochet, homing: player.homing,
       overcharge: player.overcharge
     },
-    spawns: spawnCounts
+    spawns: spawnCounts,
+    tab: debugTab
   };
   localStorage.setItem('arenaDebug', JSON.stringify(settings));
 }
@@ -274,6 +276,7 @@ function loadDebugSettings() {
         for (let i = 0; i < count; i++) spawnEnemy(type);
       }
     }
+    if (s.tab != null) debugTab = s.tab;
     return true;
   } catch (e) { return false; }
 }
@@ -361,7 +364,12 @@ function getDebugItems() {
     spawnFloatingText(player.x, player.y + 30, '-' + p.label, '#f44', 18);
   }}));
   const powerups = Object.entries(POWERUP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, powerupId: k, action: () => {
-    applyPowerup(k);
+    if (k === 'heal') { player.hp = Math.min(player.hp + 2, player.maxHp); }
+    else { player[k] = player[k] > 0 ? 0 : 99999; }
+    spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
+  }, unsub: () => {
+    if (k === 'heal') return;
+    player[k] = player[k] > 0 ? 0 : 99999;
     spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
   }}));
   const activeWeapon = player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol';
@@ -401,6 +409,7 @@ function getDebugItems() {
     { label: 'GOD MODE', color: godMode ? '#4f4' : '#888', toggle: true, action: () => { player.invuln = godMode ? 0 : 99999; } },
     { label: 'SPAWNS', color: debugNoEnemies ? '#888' : '#4f4', toggle: true, action: () => { debugNoEnemies = !debugNoEnemies; } },
     { label: 'XP', color: debugMode ? '#888' : '#4f4', toggle: true, action: () => { debugMode = !debugMode; } },
+    { label: 'ITEMS', color: debugNoDrops ? '#888' : '#4f4', toggle: true, action: () => { debugNoDrops = !debugNoDrops; } },
   ];
   return [weapons, perks, powerups, enemyTypes, modes, misc];
 }
@@ -539,7 +548,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen && e.code === 'Backquote') {
     startScreen = false; init();
-    debugMode = true; debugMenu = true; paused = true;
+    debugMode = true; debugNoDrops = true; debugMenu = true; paused = true;
     if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     document.documentElement.requestFullscreen().catch(()=>{});
     return;
@@ -578,7 +587,7 @@ document.addEventListener('mousedown', e => {
     e.preventDefault();
     if (startScreen) {
       startScreen = false; init();
-      debugMode = true; debugMenu = true; paused = true;
+      debugMode = true; debugNoDrops = true; debugMenu = true; paused = true;
       if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
       debugMenuOpenedAt = performance.now();
       document.documentElement.requestFullscreen().catch(()=>{});
@@ -594,7 +603,7 @@ document.addEventListener('mousedown', e => {
   if (e.button === 2 && startScreen) {
     e.preventDefault();
     startScreen = false; init();
-    debugMode = true; debugMenu = true; paused = true;
+    debugMode = true; debugNoDrops = true; debugMenu = true; paused = true;
     if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     debugMenuOpenedAt = performance.now();
     document.documentElement.requestFullscreen().catch(()=>{});
@@ -1291,7 +1300,7 @@ function update(dt) {
       const MAX_POWERUPS = 5;
       const dropBonus = getPerkCount('dropRate') * 0.15;
       const dropChance = e.type === 'boss' ? 1.0 : Math.min((e.type === 'small' ? 0.10 : 0.25) + dropBonus, 0.8);
-      if (powerups.length < MAX_POWERUPS && Math.random() < dropChance) {
+      if (!debugNoDrops && powerups.length < MAX_POWERUPS && Math.random() < dropChance) {
         // 25% chance to drop a weapon instead of a powerup
         const isWeapon = Math.random() < 0.25;
         if (isWeapon) {
@@ -2473,10 +2482,9 @@ function drawHUD(now) {
       if (items[i].powerupId) {
         const k = items[i].powerupId;
         const val = player[k] || 0;
-        if (val > 0) {
-          ctx.fillStyle = '#ff0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
-          ctx.fillText(Math.ceil(val) + 's', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
-        }
+        const on = val > 0;
+        ctx.fillStyle = on ? '#4f4' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 11px monospace';
+        ctx.fillText(on ? 'ON' : 'OFF', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
       if (items[i].weaponId) {
         const active = (player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol') === items[i].weaponId;
