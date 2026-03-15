@@ -1,5 +1,16 @@
 Todo
 
+* IDEAS
+  - Deck building elements.
+  - Skill points. Skills cost varying amounts of points.
+  - Random item/card modifiers like in an action-rpg.
+  - Integrated detonator and "mana" system.
+  - Levels/waves should feel like open-ended puzzles.
+  - Economy. What are the resources in the game?
+  - What elements are in balance? What does progression look like?
+  - Ammo system.
+  - Slow the game down.
+
 * HUD
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
@@ -13,6 +24,9 @@ Todo
   3) [ ] Start with 5 detonators.
   4) [ ] Recoil system. Some weapons push the player back and/or slow them down.
   5) [ ] Remove default magnetic powerups. This will be used as a skill.
+  6) [ ] Add a wave timer to show the current wave duration.
+  7) [ ] If the player runs out of detonator caps, a long cooldown is initiated
+     where on ending a cap is restored.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -110,6 +124,8 @@ Todo
       should have a threshold where they are affected. For example, GRENADE
       should only gain a projectile count every 2 extra bullet skill points. Whereas
       the SHOTGUN should gain 2x projectiles for every point.
+  17) [ ] Add MACHINE GUN weapon type. This weapon is similar to the minigun,
+      but has a slow rate of fire, less spread, less recoil, less slow-on-fire.
 
 * DETONATORS
 
@@ -125,6 +141,13 @@ Todo
   5) [ ] Add BARBS powerup. This powerup slows down any enemies affected by
      attached shrapnel (only when fired when BARBS was active, not affecting
      existing shrapnel).
+  6) [ ] Add ECHO powerup. This powerup causes a delayed "echo" of your weapon
+     whenever fired. For example, if you fire a shotgun, a 100ms later, another
+     shotgun blast will fire on its own as in an "echo."
+
+* ENVIRONMENT
+  1) [ ] Add TNT environment object. This is a stationary object that looks like
+     a red metal barrel. It explodes when its hitpoints are depleted.
 
 * SKILLS
   1) [X] Remove FAST LEARNER skill.
@@ -152,6 +175,9 @@ Todo
 * BUGS
   1) [X] Powerups don't seem to affect grenade weapon.
   2) [X] GRENADE weapon type is doing direct damage.
+  3) [ ] You can click rapidly to ignore weapon cooldown. This bug was probably
+     introduced when fixing the other bug where weapons don't fire immediately
+     on mouse-down.
 
 * PRODUCTION
   Platforms: Switch, Steam
