@@ -110,8 +110,13 @@ Todo
      damage. Each charge stack deals additional damage. Charged enemies should
      glow yellow. Show the charge count also on top of the enemy. CHARGE is a
      unique mechanic that will be reused.
-  10) [ ] Add HALBERD melee weapon.
-  11) [ ] Add LANCE melee weapon.
+  10) [ ] Add LANCE melee weapon. LANCE is similar to SABER, but attacks in a
+      long straight triangle with the tip at the furthest point. It's secondary
+      ability (right-click) fires a spear projectile in the direction of the
+      cursor, damaging enemies in its path. Like SABER, show a charge effect
+      around the player. The theme color of the lance is GREEN whereas SABER is
+      BLUE.
+  11) [ ] Add HALBERD melee weapon. The theme color of the halberd is RED.
   12) [X] Clamp pistol spread arc to 45 degrees.
   13) [ ] Add GLITTER GUN. This fires ballistically similar to the SCATTERGUN,
       but fires special slowing bullets. The bullets have a special detonation
