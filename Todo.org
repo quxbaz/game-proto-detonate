@@ -127,6 +127,9 @@ Todo
   17) [ ] Add MACHINE GUN weapon type. This weapon is similar to the minigun,
       but has a slow rate of fire, less spread, less recoil, less slow-on-fire.
       Fires in bursts.
+  18) [ ] Powerups and skills should work with SABER. SPREAD should increase arc
+      range (with a reasonable limit). DOUBLE TAP should add an additional saber
+      strike after a brief delay. BIG BULLETS should increase range.
 
 * DETONATORS
 
@@ -180,6 +183,7 @@ Todo
      introduced when fixing the other bug where weapons don't fire immediately
      on mouse-down.
   4) [ ] Reticle lags (get stuck for a brief moment) when you left or right-click.
+  5) [ ] You can detonate on the pause screen.
 
 * PRODUCTION
   Platforms: Switch, Steam
