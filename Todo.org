@@ -99,7 +99,7 @@ Todo
   8) [ ] Add SCATTERGUN. This is a rapid-firing, short-range weapon with wide
      spread and large bullets. The bullets are slow-moving and expire after a
      brief period of time.
-  9) [ ] Add SABER melee weapon. Melee weapons are a new class of weapon that
+  9) [X] Add SABER melee weapon. Melee weapons are a new class of weapon that
      deal direct damage to enemies. The SABER has a secondary effect where it
      "charges" an enemy with an incremental "charge count." When a charged
      enemy dies, it detonates nearby shrapnel and other charged enemies for
@@ -127,7 +127,7 @@ Todo
   17) [ ] Add MACHINE GUN weapon type. This weapon is similar to the minigun,
       but has a slow rate of fire, less spread, less recoil, less slow-on-fire.
       Fires in bursts.
-  18) [ ] Powerups and skills should work with SABER. SPREAD should increase arc
+  18) [X] Powerups and skills should work with SABER. SPREAD should increase arc
       range (with a reasonable limit). DOUBLE TAP should add an additional saber
       strike after a brief delay. BIG BULLETS should increase range.
 
