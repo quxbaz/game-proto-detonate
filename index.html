@@ -189,6 +189,7 @@ function sfx(type, opts = {}) {
 const meshMap = new WeakMap();
 const activeMeshes = new Set();
 let prevMeshes = new Set();
+const saberSwingKey = {}; // stable object key for WeakMap
 
 function getOrCreateMesh(obj, createFn) {
   if (!meshMap.has(obj)) {
@@ -233,7 +234,7 @@ function saveDebugSettings() {
   const settings = {
     noSpawn: debugNoEnemies,
     godMode: player.invuln > 9000,
-    weapon: player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : null,
+    weapon: player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : null,
     perks: perksPicked.slice(),
     powerups: {
       spread: player.spread, rapid: player.rapid, megablast: player.megablast,
@@ -253,7 +254,7 @@ function loadDebugSettings() {
     debugNoEnemies = s.noSpawn || false;
     if (s.godMode) player.invuln = 99999;
     if (s.weapon) {
-      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0; player.saber = 0;
       player[s.weapon] = 99999;
     }
     if (s.perks && s.perks.length > 0) {
@@ -355,14 +356,14 @@ function getDebugItems() {
     applyPowerup(k);
     spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
   }}));
-  const activeWeapon = player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol';
+  const activeWeapon = player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol';
   const weapons = [
     { label: 'PISTOL', color: '#4af', weaponId: 'pistol', action: () => {
-      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0; player.saber = 0;
       spawnFloatingText(player.x, player.y + 30, 'PISTOL', '#4af', 18);
     }},
     ...Object.entries(WEAPON_DROP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, weaponId: k, action: () => {
-      player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+      player.shotgun = 0; player.minigun = 0; player.grenade = 0; player.saber = 0;
       player[k] = 99999;
       spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
     }})),
@@ -411,7 +412,7 @@ function handleDebugClick(mx, my, count) {
   if (mx >= clearBtnX && mx <= clearBtnX + clearBtnW && my >= clearBtnY && my <= clearBtnY + clearBtnH) {
     clearDebugSettings();
     // Reset current state
-    player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+    player.shotgun = 0; player.minigun = 0; player.grenade = 0; player.saber = 0;
     player.spread = 0; player.rapid = 0; player.megablast = 0;
     player.shield = 0; player.ricochet = 0; player.homing = 0; player.overcharge = 0;
     player.invuln = 0;
@@ -468,6 +469,7 @@ const WEAPON_DROP_DEFS = {
   shotgun:   { label: 'SHOTGUN',  color: '#f84', dur: 10 },
   minigun:   { label: 'MINIGUN',  color: '#ff4', dur: 10 },
   grenade:   { label: 'GRENADE',  color: '#4f4', dur: 12 },
+  saber:     { label: 'SABER',    color: '#0ff', dur: 12, melee: true },
 };
 
 let shootCooldown = 0;
@@ -485,8 +487,8 @@ function init() {
     x: 0, y: 0, r: 14, hp: 5, maxHp: 5, invuln: 0,
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0,
-    shotgun: 0, minigun: 0, grenade: 0,
-    detonationBonus: 1, angle: 0
+    shotgun: 0, minigun: 0, grenade: 0, saber: 0,
+    detonationBonus: 1, angle: 0, saberSwingT: 0
   };
   bullets = [];
   grenades = [];
@@ -670,7 +672,7 @@ function applyWeaponDrop(type) {
   const durMult = 1 + getPerkCount('powerDur') * 0.3;
   const dur = def.dur * durMult;
   // Weapons are exclusive: picking one replaces the other
-  player.shotgun = 0; player.minigun = 0; player.grenade = 0;
+  player.shotgun = 0; player.minigun = 0; player.grenade = 0; player.saber = 0;
   player[type] = dur;
 }
 
@@ -740,7 +742,7 @@ function spawnEnemy(forceType) {
   }
   const e = {
     x: sx, y: sy,
-    ...d, type, stuck: [],
+    ...d, type, stuck: [], charge: 0,
     wobble: Math.random() * Math.PI * 2,
     spawnTimer: type === 'spawner' ? 3 + Math.random() * 2 : type === 'hive' ? 1 + Math.random() : 0,
     zapTimer: type === 'electric' ? 2 + Math.random() : 0,
@@ -809,6 +811,8 @@ function update(dt) {
   if (player.shotgun > 0) player.shotgun -= dt;
   if (player.minigun > 0) player.minigun -= dt;
   if (player.grenade > 0) player.grenade -= dt;
+  if (player.saber > 0) player.saber -= dt;
+  if (player.saberSwingT > 0) player.saberSwingT -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
@@ -817,13 +821,42 @@ function update(dt) {
   const perkFireMult = 1 + getPerkCount('fireRate') * 0.15;
   // Weapon powerup overrides
   let wRate = 0.14, wSpeed = 450, wSize = 4, wCount = 1, wSpreadArc = 0;
-  if (player.grenade > 0) { wRate = 0.7; }
+  if (player.saber > 0) { wRate = 0.25; }
+  else if (player.grenade > 0) { wRate = 0.7; }
   else if (player.minigun > 0) { wRate = 0.05; wSpeed = 420; wSize = 2.5; wSpreadArc = 0.18; }
   else if (player.shotgun > 0) { wRate = 0.38; wSpeed = 900; wSize = 3; wCount = 6; wSpreadArc = 0.5; }
   const baseRate = wRate / perkFireMult;
   const fireRate = player.rapid > 0 ? baseRate * 0.4 : baseRate;
   shootCooldown -= dt;
-  if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade > 0) {
+  // Saber melee attack
+  if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.saber > 0) {
+    const saberRange = 60;
+    const saberArc = Math.PI / 2; // 90 degree swing
+    const saberDmg = 8;
+    const a = player.angle;
+    player.saberSwingT = 0.2;
+    player.saberSwingAngle = a;
+    for (let e of enemies) {
+      const dx = e.x - player.x, dy = e.y - player.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > saberRange + e.r) continue;
+      const ea = Math.atan2(dy, dx);
+      let diff = ea - a;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      if (Math.abs(diff) > saberArc / 2) continue;
+      // Direct damage
+      e.hp -= saberDmg;
+      // Add charge
+      e.charge = (e.charge || 0) + 1;
+      spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
+      spawnFloatingText(e.x, e.y + e.r + 10, `CHARGE ${e.charge}`, '#ff0', 12);
+    }
+    spawnParticles(player.x + Math.cos(a) * 30, player.y + Math.sin(a) * 30, 6, '#0ff', 0.3);
+    sfx('shoot');
+    shootCooldown = fireRate;
+    mouse.clicked = false;
+  } else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade > 0) {
     // Lob grenade toward reticle
     const mouseWorldX = player.x + (mouse.sx - W / 2);
     const mouseWorldY = player.y - (mouse.sy - H / 2);
@@ -852,7 +885,7 @@ function update(dt) {
     }
     shootCooldown = fireRate;
     sfx('shoot');
-  } else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade <= 0 && bullets.length < MAX_BULLETS) {
+  } else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade <= 0 && player.saber <= 0 && bullets.length < MAX_BULLETS) {
     const a = player.angle;
     const bspd = wSpeed * (1 + getPerkCount('bulletSpeed') * 0.2);
     const baseBr = player.megablast > 0 ? wSize * 2 : wSize;
@@ -1203,6 +1236,49 @@ function update(dt) {
           const spd2 = 180 + Math.random() * 120;
           bullets.push({ x: e.x, y: e.y, r: 3, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true });
         }
+      }
+
+      // Charge detonation
+      if (e.charge > 0) {
+        const chargeRadius = 80 + e.charge * 10;
+        const chargeDmg = e.charge * 3;
+        // Explosion visual
+        const cr = 30 + e.charge * 8;
+        explosions.push({ x: e.x, y: e.y, r: 0, maxR: cr, t: 0, dur: 0.35, sides: 6, rot: Math.random() * Math.PI * 2 });
+        spawnParticles(e.x, e.y, 8 + e.charge * 3, '#ff0', 0.5);
+        spawnParticles(e.x, e.y, 5 + e.charge * 2, '#0ff', 0.4);
+        sfx('explode', { intensity: e.charge });
+        // Detonate nearby shrapnel bullets
+        for (let bi = bullets.length - 1; bi >= 0; bi--) {
+          const b = bullets[bi];
+          if (!b.shrapnel) continue;
+          if (dist(b, e) < chargeRadius) {
+            // Shrapnel explodes dealing damage to nearby enemies
+            for (let other of enemies) {
+              if (other === e) continue;
+              if (dist(b, other) < 40 + e.charge * 5) {
+                other.hp -= Math.ceil(chargeDmg * 0.5);
+                other.explodedBy = true;
+              }
+            }
+            spawnParticles(b.x, b.y, 4, '#f80', 0.3);
+            bullets.splice(bi, 1);
+          }
+        }
+        // Damage and chain to nearby charged enemies
+        for (let other of enemies) {
+          if (other === e || other.hp <= 0) continue;
+          if (dist(other, e) < chargeRadius + other.r) {
+            other.hp -= chargeDmg;
+            other.explodedBy = true;
+            // Transfer charge: boost their charge count
+            if (other.charge > 0) {
+              other.charge += Math.ceil(e.charge * 0.5);
+              spawnFloatingText(other.x, other.y + other.r + 10, `CHARGE ${other.charge}`, '#ff0', 14);
+            }
+          }
+        }
+        spawnFloatingText(e.x, e.y + 30, `CHARGE DETONATE x${e.charge}`, '#ff0', 16);
       }
 
       // Powerup / weapon drop (max 5 on field at once)
@@ -1644,6 +1720,29 @@ function draw3D(now) {
         }
       }
     }
+    // Charge glow: yellow emissive overlay
+    if (e.charge > 0) {
+      const chargePulse = 0.4 + 0.3 * Math.sin(now * 0.01);
+      const chargeIntensity = Math.min(e.charge * 0.15, 0.8) + chargePulse * 0.2;
+      mesh.material.emissive.setRGB(1, 1, 0);
+      mesh.material.emissiveIntensity = chargeIntensity;
+    } else if (e.stuck.length === 0) {
+      mesh.material.emissive.set(e.color);
+    }
+  }
+
+  // Saber swing arc visual
+  if (player.saberSwingT > 0) {
+    const swingMesh = getOrCreateMesh(saberSwingKey, () => {
+      const geo = new THREE.RingGeometry(20, 60, 12, 1, -Math.PI / 4, Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+      return new THREE.Mesh(geo, mat);
+    });
+    const frac = player.saberSwingT / 0.2;
+    swingMesh.position.set(player.x, player.y, 12);
+    swingMesh.rotation.z = player.saberSwingAngle;
+    swingMesh.material.opacity = frac * 0.5;
+    swingMesh.scale.setScalar(1 + (1 - frac) * 0.3);
   }
 
   // Stuck bullets
@@ -1897,6 +1996,22 @@ function drawHUD(now) {
     ctx.fillRect(sx - bw / 2, sy, bw * frac, bh);
   }
 
+  // Charge count display above enemies
+  for (let e of enemies) {
+    if (!e.charge || e.charge <= 0 || e.hp <= 0) continue;
+    const sx = W / 2 + (e.x - player.x);
+    const hasBar = (e.sizeClass || 0) >= 1;
+    const sy = H / 2 - (e.y - player.y) - e.r - (hasBar ? 22 : 12);
+    const pulse = 0.7 + 0.3 * Math.sin(performance.now() * 0.008);
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff0';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`⚡${e.charge}`, sx, sy);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+
   // Floating texts (convert world to screen)
   for (let ft of floatingTexts) {
     const alpha = 1 - ft.t / ft.dur;
@@ -2025,9 +2140,9 @@ function drawHUD(now) {
   {
     const activeItems = [];
     // Weapon first
-    const wLabel = player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : player.grenade > 0 ? 'GRENADE' : 'PISTOL';
-    const wColor = player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : player.grenade > 0 ? '#4f4' : '#4af';
-    const wTime = player.shotgun > 0 ? player.shotgun : player.minigun > 0 ? player.minigun : player.grenade > 0 ? player.grenade : -1;
+    const wLabel = player.saber > 0 ? 'SABER' : player.shotgun > 0 ? 'SHOTGUN' : player.minigun > 0 ? 'MINIGUN' : player.grenade > 0 ? 'GRENADE' : 'PISTOL';
+    const wColor = player.saber > 0 ? '#0ff' : player.shotgun > 0 ? '#f84' : player.minigun > 0 ? '#ff4' : player.grenade > 0 ? '#4f4' : '#4af';
+    const wTime = player.saber > 0 ? player.saber : player.shotgun > 0 ? player.shotgun : player.minigun > 0 ? player.minigun : player.grenade > 0 ? player.grenade : -1;
     activeItems.push({ label: wLabel, color: wColor, t: wTime, max: 10, isWeapon: true });
     // Powerups
     if (player.spread > 0) activeItems.push({ label: 'SPREAD', color: '#4ff', t: player.spread, max: 12 });
