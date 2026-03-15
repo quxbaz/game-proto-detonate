@@ -14,6 +14,9 @@ Todo
 
 * DEV
   - Iteration and feedback-cycle should be as rapid as possible.
+  - [ ] Add as much logging as possible (with data). You need a way detect bugs/crashes
+    during iterations.
+  - [ ] Use event/data-payload system. This should help with finding bugs/crashes.
 
 * HUD
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
