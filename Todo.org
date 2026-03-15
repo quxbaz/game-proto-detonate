@@ -126,6 +126,7 @@ Todo
       the SHOTGUN should gain 2x projectiles for every point.
   17) [ ] Add MACHINE GUN weapon type. This weapon is similar to the minigun,
       but has a slow rate of fire, less spread, less recoil, less slow-on-fire.
+      Fires in bursts.
 
 * DETONATORS
 
