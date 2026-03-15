@@ -12,6 +12,9 @@ Todo
   - Slow the game down.
   - Part of the fun is combining things, like the SABER and HOMING.
 
+* DEV
+  - Iteration and feedback-cycle should be as rapid as possible.
+
 * HUD
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
