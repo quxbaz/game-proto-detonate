@@ -1348,12 +1348,9 @@ function triggerDetonation() {
     if (bullets[i].grenadeShrapnel) grenadeShrapnelBullets.push(i);
   }
 
-  // Check if anything to detonate
-  let hasCharged = enemies.some(e => e.charge > 0 && e.hp > 0);
-  if (totalStuckCount === 0 && grenadeShrapnelBullets.length === 0 && !hasCharged) return;
-
   // AOE indicator at click point
   explosions.push({ x: clickWorldX, y: clickWorldY, r: 0, maxR: 120, t: 0, dur: 0.4, sides: 24, rot: 0, indicator: true });
+  sfx('explode', { intensity: 1 });
 
   let stuckBonus = 1, bonusLabel = '';
   if (totalStuckCount >= 30) { stuckBonus = 8; bonusLabel = 'APOCALYPSE'; }
