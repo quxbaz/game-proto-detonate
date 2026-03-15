@@ -202,6 +202,7 @@ Todo
      on mouse-down.
   4) [ ] Reticle lags (get stuck for a brief moment) when you left or right-click.
   5) [ ] You can detonate on the pause screen.
+  6) [ ] Lance doesn't have a triangular hitbox.
 
 * PRODUCTION
   Platforms: Switch, Steam
