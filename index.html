@@ -392,7 +392,7 @@ function getDebugItems() {
     { label: 'FULL HP', color: '#4f4', showHp: true, action: () => { player.hp = player.maxHp; }},
     { label: '+10 MAX HP', color: '#4f4', showHp: true, action: () => { player.maxHp += 10; player.hp = player.maxHp; }, unsub: () => { player.maxHp = Math.max(1, player.maxHp - 10); player.hp = Math.min(player.hp, player.maxHp); }},
     { label: 'KILL ALL', color: '#f44', action: () => { for (let e of enemies) e.hp = 0; }},
-    { label: 'SKIP 10 WAVES', color: '#fa0', showWave: true, action: () => { wave += 10; }, unsub: () => { wave = Math.max(1, wave - 10); }},
+    { label: 'SKIP WAVE', color: '#fa0', showWave: true, action: () => { wave += 1; }, unsub: () => { wave = Math.max(1, wave - 1); }},
   ];
   const removeEnemy = (type) => { const idx = enemies.findIndex(e => e.type === type && e.hp > 0); if (idx !== -1) enemies.splice(idx, 1); };
   const enemyTypes = [
@@ -462,7 +462,8 @@ function handleDebugClick(mx, my, count, subtract) {
   for (let i = 0; i < items.length; i++) {
     const iy = startItemY + i * DEBUG_ITEM_H;
     if (mx >= panelX && mx <= panelX + DEBUG_PANEL_W && my >= iy && my <= iy + DEBUG_ITEM_H) {
-      for (let c = 0; c < count; c++) (subtract && items[i].unsub ? items[i].unsub : items[i].action)();
+      const fn = subtract && items[i].unsub ? items[i].unsub : items[i].action;
+      for (let c = 0; c < count; c++) fn(1);
       saveDebugSettings();
       return;
     }
@@ -1472,13 +1473,17 @@ function update(dt) {
     p.bobT += dt;
     p.life -= dt;
     if (p.life <= 0) { powerups.splice(i, 1); continue; }
-    // Drift toward player
-    const pdx = player.x - p.x, pdy = player.y - p.y;
-    const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-    if (pdist > 1) {
-      const driftSpeed = pdist < 120 ? 100 : 30; // faster when close
-      p.x += (pdx / pdist) * driftSpeed * dt;
-      p.y += (pdy / pdist) * driftSpeed * dt;
+    // Slow float in fixed direction, bounce off arena edge
+    if (p.driftAngle == null) p.driftAngle = Math.random() * Math.PI * 2;
+    const floatSpeed = 15;
+    const nx = p.x + Math.cos(p.driftAngle) * floatSpeed * dt;
+    const ny = p.y + Math.sin(p.driftAngle) * floatSpeed * dt;
+    if (nx * nx + ny * ny < (ARENA_R - 30) * (ARENA_R - 30)) {
+      p.x = nx; p.y = ny;
+    } else {
+      // Reflect off arena wall
+      const wallAngle = Math.atan2(p.y, p.x);
+      p.driftAngle = Math.PI + 2 * wallAngle - p.driftAngle;
     }
     if (circlesOverlap(player, player.r + 5, p, p.r)) {
       if (p.isWeapon) {
