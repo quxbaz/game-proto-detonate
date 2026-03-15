@@ -5,7 +5,7 @@
 <title>Chain Reaction Arena</title>
 <style>
 * { margin: 0; padding: 0; }
-body { background: #000; overflow: hidden; cursor: crosshair; }
+body { background: #000; overflow: hidden; cursor: none; }
 canvas { display: block; }
 #hud { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; }
 
@@ -91,7 +91,7 @@ scene.add(gridHelper);
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const sfxThrottles = {};
 function sfx(type, opts = {}) {
-  if (type === 'hit' || type === 'explode') {
+  if (type === 'stick' || type === 'explode') {
     const t = performance.now();
     if (t - (sfxThrottles[type] || 0) < 10) return;
     sfxThrottles[type] = t;
@@ -109,7 +109,7 @@ function sfx(type, opts = {}) {
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
     osc.connect(g); osc.start(now); osc.stop(now + 0.08);
   }
-  if (type === 'hit') {
+  if (type === 'stick') {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(600, now);
@@ -220,11 +220,13 @@ let combo, comboTimer, maxCombo;
 let xp, playerLevel, xpToNext, perkChoices, perksPicked, levelUpTimer, pendingPerks;
 let keys = {};
 let mouse = { sx: W / 2, sy: H / 2, down: false };
+let detonating = false;
 let startScreen = true;
 let paused = false;
 let debugMenu = false;
 let debugTab = 0;
 let debugNoEnemies = false;
+let debugMode = false;
 let debugMenuOpenedAt = 0;
 
 function saveDebugSettings() {
@@ -287,10 +289,11 @@ const ALL_PERKS = [
   { id: 'fireRate',    label: 'Trigger Happy',        color: '#f4f', desc: 'Shoot 15% faster', icon: 'ROF' },
   { id: 'bulletSize',  label: 'Big Bullets',          color: '#ff4', desc: 'Bullets are 25% larger', icon: 'BIG' },
   { id: 'blastRadius', label: 'Wide Blast',           color: '#fa0', desc: 'Explosions 20% bigger', icon: 'AOE' },
-  { id: 'shrapnel',    label: 'Extra Shrapnel',       color: '#f84', desc: '+50% grenade shrapnel', icon: 'SHR' },
+  { id: 'shrapnel',    label: 'Extra Shrapnel',       color: '#f84', desc: '+50% shrapnel on chain kills', icon: 'SHR' },
   { id: 'powerDur',    label: 'Lasting Power',        color: '#8ff', desc: 'Powerups last 30% longer', icon: 'DUR' },
   { id: 'dropRate',    label: 'Lucky',                color: '#4f4', desc: 'Powerup drop rate +15%', icon: 'LCK' },
   { id: 'bulletSpeed', label: 'Velocity',             color: '#aaf', desc: 'Bullets travel 20% faster', icon: 'VEL' },
+  { id: 'chainRange',  label: 'Chain Reach',          color: '#ff8', desc: 'Chain explosions reach 25% further', icon: 'CHN' },
   { id: 'armor',       label: 'Tough',                color: '#aaa', desc: '20% chance to ignore damage', icon: 'ARM' },
   { id: 'multishot',   label: 'Double Tap',           color: '#f8f', desc: 'Fire an extra bullet', icon: 'x2' },
 ];
@@ -304,6 +307,7 @@ function xpForLevel(lvl) {
 }
 
 function gainXp(amount) {
+  if (debugMode) return;
   const xpMult = 1;
   xp += Math.floor(amount * xpMult);
   while (xp >= xpToNext) {
@@ -389,6 +393,7 @@ function getDebugItems() {
   const modes = [
     { label: 'GOD MODE', color: godMode ? '#4f4' : '#888', toggle: true, action: () => { player.invuln = godMode ? 0 : 99999; } },
     { label: 'NO SPAWN', color: debugNoEnemies ? '#4f4' : '#888', toggle: true, action: () => { debugNoEnemies = !debugNoEnemies; } },
+    { label: 'NO XP', color: debugMode ? '#4f4' : '#888', toggle: true, action: () => { debugMode = !debugMode; } },
   ];
   return [weapons, perks, powerups, enemyTypes, modes, misc];
 }
@@ -416,7 +421,7 @@ function handleDebugClick(mx, my, count) {
     player.invuln = 0;
     perksPicked = [];
     player.maxHp = 5; player.hp = Math.min(player.hp, player.maxHp);
-    debugNoEnemies = false;
+    debugNoEnemies = true;
     for (let ei = enemies.length - 1; ei >= 0; ei--) { if (enemies[ei].type !== 'dummy') enemies.splice(ei, 1); }
     spawnFloatingText(player.x, player.y + 30, 'SETTINGS CLEARED', '#f44', 18);
     return;
@@ -486,7 +491,7 @@ function init() {
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0,
     shotgun: 0, minigun: 0, grenade: 0, saber: 0,
-    angle: 0, saberSwingT: 0
+    detonationBonus: 1, angle: 0, saberSwingT: 0
   };
   bullets = [];
   grenades = [];
@@ -504,6 +509,7 @@ function init() {
   gameOver = false;
   shakeTimer = 0;
   shakeIntensity = 0;
+  detonating = false;
   combo = 0;
   comboTimer = 0;
   maxCombo = 0;
@@ -525,7 +531,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
   if (startScreen && e.code === 'Backquote') {
     startScreen = false; init();
-    debugMenu = true; paused = true;
+    debugMode = true; debugMenu = true; paused = true;
     if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     document.documentElement.requestFullscreen().catch(()=>{});
     return;
@@ -564,7 +570,7 @@ document.addEventListener('mousedown', e => {
     e.preventDefault();
     if (startScreen) {
       startScreen = false; init();
-      debugMenu = true; paused = true;
+      debugMode = true; debugMenu = true; paused = true;
       if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
       debugMenuOpenedAt = performance.now();
       document.documentElement.requestFullscreen().catch(()=>{});
@@ -580,7 +586,7 @@ document.addEventListener('mousedown', e => {
   if (e.button === 2 && startScreen) {
     e.preventDefault();
     startScreen = false; init();
-    debugMenu = true; paused = true;
+    debugMode = true; debugMenu = true; paused = true;
     if (!loadDebugSettings()) { debugNoEnemies = true; spawnEnemy('dummy'); }
     debugMenuOpenedAt = performance.now();
     document.documentElement.requestFullscreen().catch(()=>{});
@@ -739,7 +745,7 @@ function spawnEnemy(forceType) {
   }
   const e = {
     x: sx, y: sy,
-    ...d, type, charge: 0,
+    ...d, type, stuck: [], charge: 0,
     wobble: Math.random() * Math.PI * 2,
     spawnTimer: type === 'spawner' ? 3 + Math.random() * 2 : type === 'hive' ? 1 + Math.random() : 0,
     zapTimer: type === 'electric' ? 2 + Math.random() : 0,
@@ -827,9 +833,9 @@ function update(dt) {
   shootCooldown -= dt;
   // Saber melee attack
   if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.saber > 0) {
-    const saberRange = 140;
-    const saberArc = Math.PI * 0.5; // 90 degree swing
-    const saberDmg = 12;
+    const saberRange = 160;
+    const saberArc = Math.PI / 6; // 30 degree swing
+    const saberDmg = 8;
     const a = player.angle;
     player.saberSwingT = 0.2;
     player.saberSwingAngle = a;
@@ -841,7 +847,8 @@ function update(dt) {
       let diff = ea - a;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      if (Math.abs(diff) > saberArc / 2) continue;
+      const angularRadius = d > 0 ? Math.atan2(e.r, d) : Math.PI;
+      if (Math.abs(diff) > saberArc / 2 + angularRadius) continue;
       // Direct damage
       e.hp -= saberDmg;
       // Add charge
@@ -849,7 +856,7 @@ function update(dt) {
       spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
       spawnFloatingText(e.x, e.y + e.r + 10, `CHARGE ${e.charge}`, '#ff0', 12);
     }
-    spawnParticles(player.x + Math.cos(a) * 30, player.y + Math.sin(a) * 30, 6, '#0ff', 0.3);
+    spawnParticles(player.x + Math.cos(a) * 50, player.y + Math.sin(a) * 50, 6, '#0ff', 0.3);
     sfx('shoot');
     shootCooldown = fireRate;
     mouse.clicked = false;
@@ -893,16 +900,13 @@ function update(dt) {
     const shotgunBonus = player.shotgun > 0 ? 2 : 1;
     const baseCount = wCount + extraShots * shotgunBonus;
 
-    const baseDmg = player.shotgun > 0 ? 1 : player.minigun > 0 ? 1 : 2;
-    const bulletDmg = (mega ? baseDmg * 2 : baseDmg);
-
     function fireBullet(angle, dispersed) {
       const fa = angle + (wSpreadArc > 0 && wCount <= 1 ? (Math.random() - 0.5) * wSpreadArc : 0);
       const spawnDist = dispersed ? 16 + Math.random() * 20 : 16;
       const spdVar = dispersed ? bspd * (0.8 + Math.random() * 0.4) : bspd;
       bullets.push({
         x: player.x + Math.cos(fa) * spawnDist, y: player.y + Math.sin(fa) * spawnDist,
-        r: bRadius, vx: Math.cos(fa) * spdVar, vy: Math.sin(fa) * spdVar, mega, dmg: bulletDmg
+        r: bRadius, vx: Math.cos(fa) * spdVar, vy: Math.sin(fa) * spdVar, mega
       });
     }
 
@@ -960,7 +964,7 @@ function update(dt) {
         const angle = (Math.PI * 2 / (shrapnelCount * gMegaMult)) * s + (Math.random() - 0.5) * 0.4;
         const spd2 = (160 + Math.random() * 140) * gOverMult;
         const sr = 3 * (player.megablast > 0 ? 1.5 : 1);
-        bullets.push({ x: g.x, y: g.y, r: sr, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true, dmg: 2 });
+        bullets.push({ x: g.x, y: g.y, r: sr, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true, grenadeShrapnel: true, gid: g.gid });
       }
       // Explosion visual
       const sides = 5 + Math.floor(Math.random() * 4);
@@ -968,11 +972,9 @@ function update(dt) {
       explosions.push({ x: g.x, y: g.y, r: 0, maxR: 50 * blastPerk * gMegaMult * gOverMult, t: 0, dur: 0.4, sides, rot });
       // Damage nearby enemies
       const gBlastRange = 60 * blastPerk * gMegaMult * gOverMult;
-      const gBlastDmg = 5 * gMegaMult * gOverMult;
       for (let e of enemies) {
         if (dist(g, e) < gBlastRange + e.r) {
-          e.hp -= gBlastDmg;
-          spawnParticles(e.x, e.y, 4, '#ff0', 0.3);
+          e.stuck.push({ ox: (Math.random() - 0.5) * e.r, oy: (Math.random() - 0.5) * e.r, pulseT: 0 });
         }
       }
       spawnParticles(g.x, g.y, 20, '#4f4', 0.5);
@@ -983,6 +985,12 @@ function update(dt) {
     }
   }
 
+  // Detonate
+  if ((keys['KeyX'] || keys['ShiftLeft'] || keys['ShiftRight']) && !detonating) {
+    detonating = true;
+    triggerDetonation();
+  }
+  if (!keys['KeyX'] && !keys['ShiftLeft'] && !keys['ShiftRight']) detonating = false;
 
   // Bullets
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -1011,8 +1019,8 @@ function update(dt) {
     if (b.grenadeShrapnel) {
       const drag = Math.pow(0.3, dt);
       b.vx *= drag; b.vy *= drag;
-      // Remove when nearly stopped
-      if (b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
+      // Remove when nearly stopped (unless queued for detonation)
+      if (!b._detonating && b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
@@ -1022,9 +1030,9 @@ function update(dt) {
     let hit = false;
     for (let e of enemies) {
       if (circlesOverlap(b, b.r, e, e.r)) {
-        e.hp -= (b.dmg || 2);
+        e.stuck.push({ ox: b.x - e.x, oy: b.y - e.y, pulseT: 0 });
         spawnParticles(b.x, b.y, 3, '#ff0', 0.2);
-        sfx('hit');
+        sfx('stick');
         // Ricochet: bullet bounces to a nearby enemy
         if (player.ricochet > 0 && !b.ricocheted) {
           let nextEnemy = null, nd = 250;
@@ -1088,6 +1096,8 @@ function update(dt) {
       e.x += Math.cos(wobbleAngle) * e.speed * dt;
       e.y += Math.sin(wobbleAngle) * e.speed * dt;
     }
+    for (let s of e.stuck) s.pulseT += dt;
+
     // Spawner: periodically spawns small enemies nearby
     if (e.type === 'spawner' && e.hp > 0) {
       e.spawnTimer -= dt;
@@ -1099,14 +1109,14 @@ function update(dt) {
           const child = {
             x: e.x + Math.cos(sa) * 35, y: e.y + Math.sin(sa) * 35,
             r: 10, hp: 3, maxHp: 3, speed: 55, color: '#c8c', score: 5,
-            type: 'small', charge: 0, wobble: Math.random() * Math.PI * 2,
+            type: 'small', stuck: [], wobble: Math.random() * Math.PI * 2,
             spawnTimer: 0, zapTimer: 0, zapActive: 0
           };
           enemies.push(child);
           spawnParticles(child.x, child.y, 4, '#a6a', 0.3);
         }
         spawnParticles(e.x, e.y, 6, '#a6a', 0.4);
-        sfx('hit');
+        sfx('stick');
       }
     }
 
@@ -1121,14 +1131,14 @@ function update(dt) {
           const child = {
             x: e.x + Math.cos(sa) * 45, y: e.y + Math.sin(sa) * 45,
             r: 8, hp: 2, maxHp: 2, speed: 75, color: '#8c6', score: 3,
-            type: 'small', charge: 0, wobble: Math.random() * Math.PI * 2,
+            type: 'small', stuck: [], wobble: Math.random() * Math.PI * 2,
             spawnTimer: 0, zapTimer: 0, zapActive: 0
           };
           enemies.push(child);
           spawnParticles(child.x, child.y, 3, '#6a4', 0.2);
         }
         spawnParticles(e.x, e.y, 8, '#6a4', 0.5);
-        sfx('hit');
+        sfx('stick');
       }
     }
 
@@ -1193,12 +1203,17 @@ function update(dt) {
       combo++; comboTimer = 2;
       if (combo > maxCombo) maxCombo = combo;
       const comboMult = Math.min(1 + Math.floor(combo / 3), 8);
-      const pts = e.score * comboMult;
+      const detBonus = player.detonationBonus || 1;
+      const totalMult = comboMult * detBonus;
+      const pts = e.score * totalMult;
       score += pts;
 
-      const multStr = comboMult > 1 ? ` (combo x${comboMult})` : '';
-      const col = comboMult >= 10 ? '#f4f' : comboMult >= 4 ? '#ff4' : comboMult > 1 ? '#4ff' : '#fff';
-      spawnFloatingText(e.x, e.y + 20, `+${pts}${multStr}`, col, comboMult > 2 ? 18 : 14);
+      const multParts = [];
+      if (comboMult > 1) multParts.push(`combo x${comboMult}`);
+      if (detBonus > 1) multParts.push(`det x${detBonus}`);
+      const multStr = multParts.length > 0 ? ` (${multParts.join(' ')})` : '';
+      const col = totalMult >= 10 ? '#f4f' : totalMult >= 4 ? '#ff4' : totalMult > 1 ? '#4ff' : '#fff';
+      spawnFloatingText(e.x, e.y + 20, `+${pts}${multStr}`, col, totalMult > 2 ? 18 : 14);
 
       spawnParticles(e.x, e.y, 15, e.color, 0.6);
       if (e.type === 'boss') {
@@ -1214,45 +1229,17 @@ function update(dt) {
       sfx('enemyDie');
       gainXp(e.score);
 
-      // Charge detonation
-      if (e.charge > 0) {
-        const chargeRadius = 80 + e.charge * 10;
-        const chargeDmg = e.charge * 3;
-        // Explosion visual
-        const cr = 30 + e.charge * 8;
-        explosions.push({ x: e.x, y: e.y, r: 0, maxR: cr, t: 0, dur: 0.35, sides: 6, rot: Math.random() * Math.PI * 2 });
-        spawnParticles(e.x, e.y, 8 + e.charge * 3, '#ff0', 0.5);
-        spawnParticles(e.x, e.y, 5 + e.charge * 2, '#0ff', 0.4);
-        sfx('explode', { intensity: e.charge });
-        // Detonate nearby shrapnel bullets
-        for (let bi = bullets.length - 1; bi >= 0; bi--) {
-          const b = bullets[bi];
-          if (!b.shrapnel) continue;
-          if (dist(b, e) < chargeRadius) {
-            // Shrapnel explodes dealing damage to nearby enemies
-            for (let other of enemies) {
-              if (other === e) continue;
-              if (dist(b, other) < 40 + e.charge * 5) {
-                other.hp -= Math.ceil(chargeDmg * 0.5);
-              }
-            }
-            spawnParticles(b.x, b.y, 4, '#f80', 0.3);
-            bullets.splice(bi, 1);
-          }
+      // Shrapnel
+      if (e.explodedBy) {
+        const stuckCount = e.stuckBeforeDetonation || (e.stuck ? e.stuck.length : 0);
+        const hpFactor = Math.ceil(e.maxHp / 3);
+        const shrapnelMult = 1 + getPerkCount('shrapnel') * 0.5;
+        const shrapnelCount = Math.floor(Math.max(stuckCount, 2) * hpFactor * shrapnelMult);
+        for (let s = 0; s < shrapnelCount && bullets.length < MAX_BULLETS; s++) {
+          const angle = (Math.PI * 2 / shrapnelCount) * s + (Math.random() - 0.5) * 0.5;
+          const spd2 = 180 + Math.random() * 120;
+          bullets.push({ x: e.x, y: e.y, r: 3, vx: Math.cos(angle) * spd2, vy: Math.sin(angle) * spd2, shrapnel: true });
         }
-        // Damage and chain to nearby charged enemies
-        for (let other of enemies) {
-          if (other === e || other.hp <= 0) continue;
-          if (dist(other, e) < chargeRadius + other.r) {
-            other.hp -= chargeDmg;
-            // Transfer charge: boost their charge count
-            if (other.charge > 0) {
-              other.charge += Math.ceil(e.charge * 0.5);
-              spawnFloatingText(other.x, other.y + other.r + 10, `CHARGE ${other.charge}`, '#ff0', 14);
-            }
-          }
-        }
-        spawnFloatingText(e.x, e.y + 30, `CHARGE DETONATE x${e.charge}`, '#ff0', 16);
       }
 
       // Powerup / weapon drop (max 5 on field at once)
@@ -1345,9 +1332,224 @@ function update(dt) {
   mouse.clicked = false;
 }
 
-// ============ RIGHT-CLICK (debug menu) ============
+// ============ DETONATION ============
+function triggerDetonation() {
+  const clickWorldX = player.x + (mouse.sx - W / 2);
+  const clickWorldY = player.y - (mouse.sy - H / 2);
+  const clickPt = { x: clickWorldX, y: clickWorldY };
+
+  // Count total stuck for bonus tier
+  let totalStuckCount = 0;
+  for (let e of enemies) totalStuckCount += e.stuck.length;
+
+  // Collect grenade shrapnel for independent detonation
+  let grenadeShrapnelBullets = [];
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    if (bullets[i].grenadeShrapnel) grenadeShrapnelBullets.push(i);
+  }
+
+  // Check if anything to detonate
+  let hasCharged = enemies.some(e => e.charge > 0 && e.hp > 0);
+  if (totalStuckCount === 0 && grenadeShrapnelBullets.length === 0 && !hasCharged) return;
+
+  // AOE indicator at click point
+  explosions.push({ x: clickWorldX, y: clickWorldY, r: 0, maxR: 120, t: 0, dur: 0.4, sides: 24, rot: 0, indicator: true });
+
+  let stuckBonus = 1, bonusLabel = '';
+  if (totalStuckCount >= 30) { stuckBonus = 8; bonusLabel = 'APOCALYPSE'; }
+  else if (totalStuckCount >= 20) { stuckBonus = 5; bonusLabel = 'MASSIVE'; }
+  else if (totalStuckCount >= 15) { stuckBonus = 4; bonusLabel = 'HUGE'; }
+  else if (totalStuckCount >= 10) { stuckBonus = 3; bonusLabel = 'BIG'; }
+  else if (totalStuckCount >= 5) { stuckBonus = 2; bonusLabel = 'NICE'; }
+
+  if (stuckBonus > 1) {
+    const col = stuckBonus >= 5 ? '#f4f' : stuckBonus >= 3 ? '#ff4' : '#4ff';
+    waveAnnounce = { text: `${bonusLabel} DETONATION x${stuckBonus}!`, t: 0, dur: 1.5, color: col };
+    sfx('chain', { depth: Math.min(stuckBonus, 5) });
+  }
+
+  player.detonationBonus = stuckBonus;
+  setTimeout(() => { player.detonationBonus = 1; }, 2000);
+
+  const flatBonus = totalStuckCount * 5 * stuckBonus;
+  if (flatBonus > 0) {
+    score += flatBonus;
+    const col = stuckBonus >= 5 ? '#f4f' : stuckBonus >= 3 ? '#ff4' : '#fff';
+    spawnFloatingText(clickWorldX, clickWorldY + 30, `DETONATE +${flatBonus}`, col, stuckBonus > 1 ? 20 : 14);
+  }
+
+  const initRadius = 120;
+
+  // Find first wave: enemies near click point that have stuck bullets or charge
+  const firstWave = [];
+  for (let e of enemies) {
+    if (e.hp <= 0) continue;
+    if (e.stuck.length === 0 && (e.charge || 0) === 0) continue;
+    if (dist(e, clickPt) < initRadius + e.r) firstWave.push(e);
+  }
+
+  // Collect grenade shrapnel near click point for first wave
+  const firstShrapnel = [];
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    if (b.grenadeShrapnel && dist(b, clickPt) <= initRadius) {
+      firstShrapnel.push(b);
+      b._detonating = true;
+    }
+  }
+
+  if (firstWave.length > 0 || firstShrapnel.length > 0) {
+    chainDetonate(firstWave, 0, stuckBonus, firstShrapnel);
+  }
+}
+
+function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
+  const megaMult = player.megablast > 0 ? 2 : 1;
+  const overMult = player.overcharge > 0 ? 1.8 : 1;
+  const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
+  const chainPerk = 1 + getPerkCount('chainRange') * 0.25;
+  const blastRadius = 80 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
+  const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
+  const nextWave = [];
+  const nextShrapnel = [];
+  const detonationPoints = []; // track explosion centers for shrapnel chaining
+
+  // Detonate grenade shrapnel in this wave
+  if (shrapnelWave && shrapnelWave.length > 0) {
+    for (const b of shrapnelWave) {
+      const bi = bullets.indexOf(b);
+      if (bi < 0) continue;
+      const r = 40 * megaMult * overMult;
+      explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
+      spawnParticles(b.x, b.y, 6, '#f44', 0.4);
+      spawnParticles(b.x, b.y, 4, '#f80', 0.5);
+      sfx('explode', { intensity: 1 });
+      shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
+      for (let e of enemies) {
+        if (dist(b, e) < gsRadius + e.r) { e.hp -= 3 * stuckBonus; e.explodedBy = true; }
+      }
+      detonationPoints.push({ x: b.x, y: b.y, radius: gsRadius });
+      bullets.splice(bi, 1);
+    }
+  }
+
+  for (let e of wave) {
+    if (depth > 0) {
+      const now = performance.now();
+      if (now - (e._lastDetonateT || 0) < 300) continue;
+      e._lastDetonateT = now;
+    } else {
+      e._lastDetonateT = performance.now();
+    }
+
+    // Stuck bullet detonation
+    if (e.stuck.length > 0) {
+      const count = e.stuck.length;
+      const dmg = count * 2;
+      e.hp -= dmg;
+      e.explodedBy = true;
+      const r = (30 + count * 10) * megaMult * overMult;
+      explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
+      shakeTimer = 0.2 + count * 0.05 * megaMult;
+      shakeIntensity = (4 + count * 2) * megaMult;
+      spawnParticles(e.x, e.y, (8 + count * 4) * megaMult, '#ff0', 0.5);
+      spawnParticles(e.x, e.y, (5 + count * 2) * megaMult, '#f80', 0.7);
+      if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
+      sfx('explode', { intensity: count * megaMult });
+      if (depth > 0) sfx('chain', { depth });
+      // Area damage to nearby enemies
+      for (let other of enemies) {
+        if (other === e) continue;
+        if (dist(other, e) < r) {
+          other.hp -= Math.ceil(count * 0.5 * megaMult);
+          other.explodedBy = true;
+        }
+      }
+      e.stuckBeforeDetonation = count;
+      e.stuck = [];
+      detonationPoints.push({ x: e.x, y: e.y, radius: (blastRadius + r) * chainPerk });
+      // Chain to nearby stuck/charged enemies
+      for (let other of enemies) {
+        if (performance.now() - (other._lastDetonateT || 0) < 300 || wave.includes(other)) continue;
+        if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
+        if (dist(other, e) < (blastRadius + r) * chainPerk) {
+          if (!nextWave.includes(other)) nextWave.push(other);
+        }
+      }
+    }
+
+    // Charge detonation
+    if (e.charge > 0) {
+      const chargeRadius = 80 + e.charge * 10;
+      const chargeDmg = e.charge * 3;
+      const cr = 30 + e.charge * 8;
+      explosions.push({ x: e.x, y: e.y, r: 0, maxR: cr, t: 0, dur: 0.35, sides: 6, rot: Math.random() * Math.PI * 2 });
+      spawnParticles(e.x, e.y, 8 + e.charge * 3, '#ff0', 0.5);
+      spawnParticles(e.x, e.y, 5 + e.charge * 2, '#0ff', 0.4);
+      sfx('explode', { intensity: e.charge });
+      shakeTimer = Math.max(shakeTimer, 0.15); shakeIntensity = Math.max(shakeIntensity, 4 + e.charge);
+      spawnFloatingText(e.x, e.y + 30, `CHARGE x${e.charge}`, '#ff0', 16);
+      // Detonate nearby shrapnel bullets (non-grenade)
+      for (let bi = bullets.length - 1; bi >= 0; bi--) {
+        const b = bullets[bi];
+        if (!b.shrapnel || b.grenadeShrapnel) continue;
+        if (dist(b, e) < chargeRadius) {
+          for (let other of enemies) {
+            if (other === e) continue;
+            if (dist(b, other) < 40 + e.charge * 5) {
+              other.hp -= Math.ceil(chargeDmg * 0.5);
+              other.explodedBy = true;
+            }
+          }
+          spawnParticles(b.x, b.y, 4, '#f80', 0.3);
+          bullets.splice(bi, 1);
+        }
+      }
+      // Damage nearby enemies
+      for (let other of enemies) {
+        if (other === e || other.hp <= 0) continue;
+        if (dist(other, e) < chargeRadius + other.r) {
+          other.hp -= chargeDmg;
+          other.explodedBy = true;
+        }
+      }
+      e.hp -= chargeDmg;
+      e.explodedBy = true;
+      detonationPoints.push({ x: e.x, y: e.y, radius: chargeRadius });
+      // Chain to nearby charged/stuck enemies
+      for (let other of enemies) {
+        if (performance.now() - (other._lastDetonateT || 0) < 300 || wave.includes(other)) continue;
+        if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
+        if (dist(other, e) < chargeRadius + other.r) {
+          if (!nextWave.includes(other)) nextWave.push(other);
+        }
+      }
+      e.charge = 0;
+    }
+  }
+
+  // Collect grenade shrapnel near detonation points for next wave
+  for (let bi = bullets.length - 1; bi >= 0; bi--) {
+    const b = bullets[bi];
+    if (!b.grenadeShrapnel || b._detonating) continue;
+    for (const pt of detonationPoints) {
+      if (dist(b, pt) <= pt.radius) {
+        nextShrapnel.push(b);
+        b._detonating = true;
+        break;
+      }
+    }
+  }
+
+  if (nextWave.length > 0 || nextShrapnel.length > 0) {
+    setTimeout(() => chainDetonate(nextWave, depth + 1, stuckBonus, nextShrapnel), 150);
+  }
+}
+
+// ============ RIGHT-CLICK DETONATE (single listener) ============
 document.addEventListener('mousedown', e => {
   if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, 10); return; }
+  if (e.button === 2 && !gameOver) triggerDetonation();
 });
 
 // Shared geos & mats
@@ -1357,6 +1559,8 @@ const shrapnelGeo = new THREE.SphereGeometry(3, 6, 6);
 const shrapnelMat = new THREE.MeshBasicMaterial({ color: 0xff8800 });
 const shrapnelRingGeo = new THREE.TorusGeometry(6, 0.8, 4, 8);
 const shrapnelRingMat = new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.5 });
+const stuckGeo = new THREE.SphereGeometry(3, 6, 6);
+const stuckMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
 const explosionGeo = new THREE.SphereGeometry(1, 10, 10);
 const explosionCoreMat = new THREE.MeshBasicMaterial({ color: 0xffff88, transparent: true, opacity: 1.0 });
 
@@ -1494,7 +1698,11 @@ function draw3D(now) {
     const faceAngle = Math.atan2(player.y - e.y, player.x - e.x);
     mesh.position.set(e.x, e.y, 0);
     mesh.rotation.z = faceAngle;
-    mesh.material.emissiveIntensity = 0.2;
+    if (e.stuck.length > 0) {
+      mesh.material.emissiveIntensity = 0.2 + 0.3 * Math.sin(now * 0.008) + e.stuck.length * 0.05;
+    } else {
+      mesh.material.emissiveIntensity = 0.2;
+    }
     // Electric zap ring animation
     if (e.type === 'electric') {
       const zapRing = mesh.getObjectByName('zapRing');
@@ -1545,7 +1753,7 @@ function draw3D(now) {
       const chargeIntensity = Math.min(e.charge * 0.15, 0.8) + chargePulse * 0.2;
       mesh.material.emissive.setRGB(1, 1, 0);
       mesh.material.emissiveIntensity = chargeIntensity;
-    } else {
+    } else if (e.stuck.length === 0) {
       mesh.material.emissive.set(e.color);
     }
   }
@@ -1553,15 +1761,25 @@ function draw3D(now) {
   // Saber swing arc visual
   if (player.saberSwingT > 0) {
     const swingMesh = getOrCreateMesh(saberSwingKey, () => {
-      const geo = new THREE.RingGeometry(20, 140, 16, 1, -Math.PI * 0.25, Math.PI * 0.5);
+      const geo = new THREE.RingGeometry(14, 165, 16, 1, -Math.PI / 10, Math.PI / 5);
       const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
       return new THREE.Mesh(geo, mat);
     });
     const frac = player.saberSwingT / 0.2;
     swingMesh.position.set(player.x, player.y, 12);
     swingMesh.rotation.z = player.saberSwingAngle;
-    swingMesh.material.opacity = frac * 0.5;
-    swingMesh.scale.setScalar(1 + (1 - frac) * 0.3);
+    swingMesh.material.opacity = frac * 0.7;
+  }
+
+  // Stuck bullets
+  for (let e of enemies) {
+    for (let s of e.stuck) {
+      const sm = getOrCreateMesh(s, () => new THREE.Mesh(stuckGeo, stuckMat.clone()));
+      const pulse = 0.5 + 0.5 * Math.sin(s.pulseT * 8);
+      sm.position.set(e.x + s.ox, e.y + s.oy, 8);
+      sm.scale.setScalar(0.8 + pulse * 0.4);
+      sm.material.color.setRGB(1, 0.5 + pulse * 0.3, pulse * 0.2);
+    }
   }
 
   // Grenades
@@ -1677,10 +1895,17 @@ function draw3D(now) {
     mesh.position.set(ex.x, ex.y, 2);
     mesh.scale.setScalar(Math.max(0.1, ex.r));
     mesh.rotation.z = ex.rot || 0;
-    mesh.material.opacity = Math.max(alpha, 0.4);
-    mesh.material.color.setHSL(0.08 - alpha * 0.02, 1, 0.50 + alpha * 0.2);
-    const core = mesh.getObjectByName('core');
-    if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
+    if (ex.indicator) {
+      mesh.material.opacity = alpha * 0.25;
+      mesh.material.color.setRGB(1, 0.15, 0.1);
+      const core = mesh.getObjectByName('core');
+      if (core) { core.scale.setScalar(0.92); core.material.opacity = 0; }
+    } else {
+      mesh.material.opacity = Math.max(alpha, 0.4);
+      mesh.material.color.setHSL(0.08 - alpha * 0.02, 1, 0.50 + alpha * 0.2);
+      const core = mesh.getObjectByName('core');
+      if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
+    }
     if (li < MAX_EXP_LIGHTS) {
       const lt = expLights[li++];
       lt.visible = true;
@@ -1995,6 +2220,28 @@ function drawHUD(now) {
     ctx.textAlign = 'left';
   }
 
+  // Stuck count & detonation tier
+  let totalStuck = 0;
+  for (let e of enemies) totalStuck += e.stuck.length;
+  if (totalStuck > 0) {
+    const pulse = 0.7 + 0.3 * Math.sin(now / 200);
+    let tierLabel = '', tierColor = '#f80';
+    if (totalStuck >= 30) { tierLabel = ' APOCALYPSE x8'; tierColor = '#f4f'; }
+    else if (totalStuck >= 20) { tierLabel = ' MASSIVE x5'; tierColor = '#f4f'; }
+    else if (totalStuck >= 15) { tierLabel = ' HUGE x4'; tierColor = '#ff4'; }
+    else if (totalStuck >= 10) { tierLabel = ' BIG x3'; tierColor = '#ff4'; }
+    else if (totalStuck >= 5) { tierLabel = ' NICE x2'; tierColor = '#4ff'; }
+    let nextAt = totalStuck < 5 ? 5 : totalStuck < 10 ? 10 : totalStuck < 15 ? 15 : totalStuck < 20 ? 20 : totalStuck < 30 ? 30 : 0;
+    ctx.fillStyle = `rgba(255,128,0,${pulse})`;
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`STUCK: ${totalStuck}${tierLabel}`, W / 2, 20);
+    if (nextAt > 0) { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '11px monospace'; ctx.fillText(`next bonus at ${nextAt}`, W / 2, 34); }
+    ctx.fillStyle = tierColor; ctx.font = '12px monospace';
+    ctx.fillText('[X/SHIFT/RIGHT-CLICK to DETONATE]', W / 2, nextAt > 0 ? 48 : 34);
+    ctx.textAlign = 'left';
+  }
+
   // Wave
   ctx.fillStyle = '#666'; ctx.font = '11px monospace';
   ctx.fillText(`WAVE ${waveNum}`, W - 70, 14);
@@ -2017,7 +2264,7 @@ function drawHUD(now) {
     for (let e of enemies) {
       const ex = mmX + e.x * scale, ey = mmY - e.y * scale;
       const er = Math.max(1.5, e.r * scale * 0.5);
-      ctx.fillStyle = e.charge > 0 ? '#ff0' : e.color;
+      ctx.fillStyle = e.stuck.length > 0 ? '#fa0' : e.color;
       ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
     }
 
@@ -2126,16 +2373,6 @@ function drawHUD(now) {
     ctx.textAlign = 'left';
   }
 
-  // Crosshair - follows mouse directly
-  const cx = mouse.sx;
-  const cy = mouse.sy;
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 6, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 15, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy - 6); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 15); ctx.stroke();
-
   // Paused
   if (paused && !debugMenu) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
@@ -2172,11 +2409,12 @@ function drawHUD(now) {
     const tabW = DEBUG_PANEL_W / 6;
     for (let t = 0; t < 6; t++) {
       const tx = panelX + t * tabW;
-      ctx.fillStyle = t === debugTab ? 'rgba(255,255,100,0.25)' : 'rgba(255,255,255,0.08)';
+      const tabHover = mouse.sx >= tx && mouse.sx <= tx + tabW && mouse.sy >= tabY && mouse.sy <= tabY + tabH;
+      ctx.fillStyle = t === debugTab ? 'rgba(255,255,100,0.25)' : tabHover ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)';
       ctx.fillRect(tx, tabY, tabW, tabH);
       ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1;
       ctx.strokeRect(tx, tabY, tabW, tabH);
-      ctx.fillStyle = t === debugTab ? '#ff0' : '#888';
+      ctx.fillStyle = t === debugTab ? '#ff0' : tabHover ? '#fff' : '#888';
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
       ctx.fillText(DEBUG_TABS[t], tx + tabW / 2, tabY + 19);
     }
@@ -2224,6 +2462,21 @@ function drawHUD(now) {
     ctx.textAlign = 'left';
   }
 
+  // Crosshair - follows mouse directly (drawn after overlays so it's always visible)
+  const cx = mouse.sx;
+  const cy = mouse.sy;
+  // Detonation radius ring
+  ctx.strokeStyle = 'rgba(255,60,40,0.9)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI * 2); ctx.stroke();
+  // Main crosshair
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 6, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 15, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy - 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, cy + 15); ctx.stroke();
+
   // Start screen
   if (startScreen) {
     ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, W, H);
@@ -2243,6 +2496,7 @@ function drawHUD(now) {
     const controls = [
       'WASD - Move',
       'Mouse - Aim & Shoot',
+      'Right-Click / X / Shift - Detonate',
     ];
     let cy = H / 2 - 30;
     for (const line of controls) {
@@ -2253,10 +2507,10 @@ function drawHUD(now) {
     // Tips
     ctx.fillStyle = '#f84'; ctx.font = 'bold 13px monospace';
     cy += 10;
-    ctx.fillText('Shoot enemies and collect powerups to survive!', W / 2, cy);
+    ctx.fillText('Stick bullets to enemies, then DETONATE for chain reactions!', W / 2, cy);
     cy += 18;
     ctx.fillStyle = '#4ff'; ctx.font = '12px monospace';
-    ctx.fillText('Chain combos for bonus multipliers', W / 2, cy);
+    ctx.fillText('More stuck bullets = bigger bonus multiplier', W / 2, cy);
 
     // Start prompt
     const startPulse = 0.5 + 0.5 * Math.sin(now * 0.005);
