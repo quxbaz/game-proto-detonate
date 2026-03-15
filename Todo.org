@@ -147,7 +147,7 @@ Todo
 * DETONATORS
 
 * ITEMS
-  1) [ ] Items should float slowly randomly, but should not be attracted to the player.
+  1) [X] Items should float slowly randomly, but should not be attracted to the player.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
