@@ -353,8 +353,14 @@ function getDebugItems() {
     perksPicked.push(p.id);
     if (p.id === 'maxHp') { player.maxHp++; player.hp = Math.min(player.hp + 1, player.maxHp); }
     spawnFloatingText(player.x, player.y + 30, p.label, p.color, 18);
+  }, unsub: () => {
+    const idx = perksPicked.lastIndexOf(p.id);
+    if (idx === -1) return;
+    perksPicked.splice(idx, 1);
+    if (p.id === 'maxHp') { player.maxHp = Math.max(1, player.maxHp - 1); player.hp = Math.min(player.hp, player.maxHp); }
+    spawnFloatingText(player.x, player.y + 30, '-' + p.label, '#f44', 18);
   }}));
-  const powerups = Object.entries(POWERUP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, action: () => {
+  const powerups = Object.entries(POWERUP_DEFS).map(([k, v]) => ({ label: v.label, color: v.color, powerupId: k, action: () => {
     applyPowerup(k);
     spawnFloatingText(player.x, player.y + 30, v.label, v.color, 18);
   }}));
@@ -371,29 +377,30 @@ function getDebugItems() {
     }})),
   ];
   const misc = [
-    { label: '+5 LEVELS', color: '#ff4', action: () => { for (let i = 0; i < 5; i++) { playerLevel++; xpToNext = xpForLevel(playerLevel); } }},
-    { label: '+1 LEVEL', color: '#ff4', action: () => { playerLevel++; xpToNext = xpForLevel(playerLevel); }},
-    { label: 'FULL HP', color: '#4f4', action: () => { player.hp = player.maxHp; }},
-    { label: '+10 MAX HP', color: '#4f4', action: () => { player.maxHp += 10; player.hp = player.maxHp; }},
+    { label: '+5 LEVELS', color: '#ff4', showLevel: true, action: () => { for (let i = 0; i < 5; i++) { playerLevel++; xpToNext = xpForLevel(playerLevel); } }, unsub: () => { playerLevel = Math.max(1, playerLevel - 5); xpToNext = xpForLevel(playerLevel); }},
+    { label: '+1 LEVEL', color: '#ff4', showLevel: true, action: () => { playerLevel++; xpToNext = xpForLevel(playerLevel); }, unsub: () => { playerLevel = Math.max(1, playerLevel - 1); xpToNext = xpForLevel(playerLevel); }},
+    { label: 'FULL HP', color: '#4f4', showHp: true, action: () => { player.hp = player.maxHp; }},
+    { label: '+10 MAX HP', color: '#4f4', showHp: true, action: () => { player.maxHp += 10; player.hp = player.maxHp; }, unsub: () => { player.maxHp = Math.max(1, player.maxHp - 10); player.hp = Math.min(player.hp, player.maxHp); }},
     { label: 'KILL ALL', color: '#f44', action: () => { for (let e of enemies) e.hp = 0; }},
-    { label: 'SKIP 10 WAVES', color: '#fa0', action: () => { wave += 10; }},
+    { label: 'SKIP 10 WAVES', color: '#fa0', showWave: true, action: () => { wave += 10; }, unsub: () => { wave = Math.max(1, wave - 10); }},
   ];
+  const removeEnemy = (type) => { const idx = enemies.findIndex(e => e.type === type && e.hp > 0); if (idx !== -1) enemies.splice(idx, 1); };
   const enemyTypes = [
-    { label: 'DUMMY',    color: '#888', enemyType: 'dummy',    action: () => spawnEnemy('dummy') },
-    { label: 'SMALL',    color: '#4f8', enemyType: 'small',    action: () => spawnEnemy('small') },
-    { label: 'MEDIUM',   color: '#f84', enemyType: 'medium',   action: () => spawnEnemy('medium') },
-    { label: 'LARGE',    color: '#f44', enemyType: 'large',    action: () => spawnEnemy('large') },
-    { label: 'CHASER',   color: '#8ff', enemyType: 'chaser',   action: () => spawnEnemy('chaser') },
-    { label: 'SPAWNER',  color: '#a6a', enemyType: 'spawner',  action: () => spawnEnemy('spawner') },
-    { label: 'ELECTRIC', color: '#ff0', enemyType: 'electric', action: () => spawnEnemy('electric') },
-    { label: 'BOSS',     color: '#f22', enemyType: 'boss',     action: () => spawnEnemy('boss') },
-    { label: 'HIVE',     color: '#6a4', enemyType: 'hive',     action: () => spawnEnemy('hive') },
+    { label: 'DUMMY',    color: '#888', enemyType: 'dummy',    action: () => spawnEnemy('dummy'), unsub: () => removeEnemy('dummy') },
+    { label: 'SMALL',    color: '#4f8', enemyType: 'small',    action: () => spawnEnemy('small'), unsub: () => removeEnemy('small') },
+    { label: 'MEDIUM',   color: '#f84', enemyType: 'medium',   action: () => spawnEnemy('medium'), unsub: () => removeEnemy('medium') },
+    { label: 'LARGE',    color: '#f44', enemyType: 'large',    action: () => spawnEnemy('large'), unsub: () => removeEnemy('large') },
+    { label: 'CHASER',   color: '#8ff', enemyType: 'chaser',   action: () => spawnEnemy('chaser'), unsub: () => removeEnemy('chaser') },
+    { label: 'SPAWNER',  color: '#a6a', enemyType: 'spawner',  action: () => spawnEnemy('spawner'), unsub: () => removeEnemy('spawner') },
+    { label: 'ELECTRIC', color: '#ff0', enemyType: 'electric', action: () => spawnEnemy('electric'), unsub: () => removeEnemy('electric') },
+    { label: 'BOSS',     color: '#f22', enemyType: 'boss',     action: () => spawnEnemy('boss'), unsub: () => removeEnemy('boss') },
+    { label: 'HIVE',     color: '#6a4', enemyType: 'hive',     action: () => spawnEnemy('hive'), unsub: () => removeEnemy('hive') },
   ];
   const godMode = player.invuln > 9000;
   const modes = [
     { label: 'GOD MODE', color: godMode ? '#4f4' : '#888', toggle: true, action: () => { player.invuln = godMode ? 0 : 99999; } },
-    { label: 'NO SPAWN', color: debugNoEnemies ? '#4f4' : '#888', toggle: true, action: () => { debugNoEnemies = !debugNoEnemies; } },
-    { label: 'NO XP', color: debugMode ? '#4f4' : '#888', toggle: true, action: () => { debugMode = !debugMode; } },
+    { label: 'SPAWNS', color: debugNoEnemies ? '#888' : '#4f4', toggle: true, action: () => { debugNoEnemies = !debugNoEnemies; } },
+    { label: 'XP', color: debugMode ? '#888' : '#4f4', toggle: true, action: () => { debugMode = !debugMode; } },
   ];
   return [weapons, perks, powerups, enemyTypes, modes, misc];
 }
@@ -402,7 +409,7 @@ const DEBUG_TABS = ['WEAPONS', 'SKILLS', 'POWERUPS', 'SPAWNS', 'MODES', 'MISC'];
 const DEBUG_ITEM_H = 28;
 const DEBUG_PANEL_W = 330;
 
-function handleDebugClick(mx, my, count) {
+function handleDebugClick(mx, my, count, subtract) {
   count = count || 1;
   const items = getDebugItems()[debugTab];
   const panelX = W / 2 - DEBUG_PANEL_W / 2;
@@ -422,8 +429,9 @@ function handleDebugClick(mx, my, count) {
     perksPicked = [];
     player.maxHp = 5; player.hp = Math.min(player.hp, player.maxHp);
     debugNoEnemies = true;
-    for (let ei = enemies.length - 1; ei >= 0; ei--) { if (enemies[ei].type !== 'dummy') enemies.splice(ei, 1); }
-    spawnFloatingText(player.x, player.y + 30, 'SETTINGS CLEARED', '#f44', 18);
+    for (let ei = enemies.length - 1; ei >= 0; ei--) enemies.splice(ei, 1);
+    spawnEnemy('dummy');
+    spawnFloatingText(player.x, player.y + 30, 'SETTINGS RESET', '#f44', 18);
     return;
   }
   const tabY = baseY + headerH;
@@ -441,7 +449,7 @@ function handleDebugClick(mx, my, count) {
   for (let i = 0; i < items.length; i++) {
     const iy = startItemY + i * DEBUG_ITEM_H;
     if (mx >= panelX && mx <= panelX + DEBUG_PANEL_W && my >= iy && my <= iy + DEBUG_ITEM_H) {
-      for (let c = 0; c < count; c++) items[i].action();
+      for (let c = 0; c < count; c++) (subtract && items[i].unsub ? items[i].unsub : items[i].action)();
       saveDebugSettings();
       return;
     }
@@ -594,7 +602,7 @@ document.addEventListener('mousedown', e => {
   }
   if (e.button === 0) {
     if (startScreen) { startScreen = false; init(); document.documentElement.requestFullscreen().catch(()=>{});  return; }
-    if (debugMenu) { handleDebugClick(e.clientX, e.clientY, 1); return; }
+    if (debugMenu) { handleDebugClick(e.clientX, e.clientY, e.shiftKey ? 10 : 1, false); return; }
     if (paused) { paused = false; return; }
     if (perkChoices) {
       // Check if clicking a perk card
@@ -833,31 +841,68 @@ function update(dt) {
   shootCooldown -= dt;
   // Saber melee attack
   if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.saber > 0) {
-    const saberRange = 160;
-    const saberArc = Math.PI / 6; // 30 degree swing
+    const baseRange = 160;
+    const saberRange = baseRange + getPerkCount('bulletSize') * 30; // Big Bullets increases range
+    const baseArc = Math.PI / 6; // 30 degree swing
+    const saberArc = Math.min(baseArc + (player.spread > 0 ? Math.PI / 6 : 0), Math.PI / 2); // Spread widens arc, cap 90°
     const saberDmg = 8;
-    const a = player.angle;
+    let a = player.angle;
+    // Homing: auto-target nearest enemy to cursor, fallback to nearest to player
+    if (player.homing > 0) {
+      const cursorX = player.x + (mouse.sx - W / 2);
+      const cursorY = player.y - (mouse.sy - H / 2);
+      let cursorTarget = null, cursorDist = Infinity;
+      let nearestTarget = null, nearestDist = Infinity;
+      for (let e of enemies) {
+        if (e.hp <= 0) continue;
+        const dp = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
+        if (dp > saberRange + e.r) continue;
+        if (dp < nearestDist) { nearestDist = dp; nearestTarget = e; }
+        const dc = Math.sqrt((e.x - cursorX) ** 2 + (e.y - cursorY) ** 2);
+        if (dc < saberRange && dc < cursorDist) { cursorDist = dc; cursorTarget = e; }
+      }
+      const target = cursorTarget || nearestTarget;
+      if (target) a = Math.atan2(target.y - player.y, target.x - player.x);
+    }
     player.saberSwingT = 0.2;
     player.saberSwingAngle = a;
-    for (let e of enemies) {
-      const dx = e.x - player.x, dy = e.y - player.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > saberRange + e.r) continue;
-      const ea = Math.atan2(dy, dx);
-      let diff = ea - a;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      const angularRadius = d > 0 ? Math.atan2(e.r, d) : Math.PI;
-      if (Math.abs(diff) > saberArc / 2 + angularRadius) continue;
-      // Direct damage
-      e.hp -= saberDmg;
-      // Add charge
-      e.charge = (e.charge || 0) + 1;
-      spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
-      spawnFloatingText(e.x, e.y + e.r + 10, `CHARGE ${e.charge}`, '#ff0', 12);
+    player.saberSwingArc = saberArc;
+    player.saberSwingRange = saberRange;
+    function saberStrike(angle) {
+      for (let e of enemies) {
+        const dx = e.x - player.x, dy = e.y - player.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > saberRange + e.r) continue;
+        const ea = Math.atan2(dy, dx);
+        let diff = ea - angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const angularRadius = d > 0 ? Math.atan2(e.r, d) : Math.PI;
+        if (Math.abs(diff) > saberArc / 2 + angularRadius) continue;
+        e.hp -= saberDmg;
+        e.charge = (e.charge || 0) + 1;
+        spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
+        spawnFloatingText(e.x, e.y + e.r + 10, `CHARGE ${e.charge}`, '#ff0', 12);
+      }
+      spawnParticles(player.x + Math.cos(angle) * 50, player.y + Math.sin(angle) * 50, 6, '#0ff', 0.3);
     }
-    spawnParticles(player.x + Math.cos(a) * 50, player.y + Math.sin(a) * 50, 6, '#0ff', 0.3);
+    saberStrike(a);
     sfx('shoot');
+    // Double Tap: delayed second strike
+    const extraStrikes = getPerkCount('multishot');
+    if (extraStrikes > 0) {
+      for (let s = 0; s < extraStrikes; s++) {
+        const delay = (s + 1) * 80;
+        const strikeAngle = a;
+        setTimeout(() => {
+          if (player.saber <= 0) return;
+          player.saberSwingT = 0.15;
+          player.saberSwingAngle = strikeAngle;
+          saberStrike(strikeAngle);
+          sfx('shoot');
+        }, delay);
+      }
+    }
     shootCooldown = fireRate;
     mouse.clicked = false;
   } else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.grenade > 0) {
@@ -1525,7 +1570,7 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
 
 // ============ RIGHT-CLICK DETONATE (single listener) ============
 document.addEventListener('mousedown', e => {
-  if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, 10); return; }
+  if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, e.shiftKey ? 10 : 1, true); return; }
   if (e.button === 2 && !gameOver) triggerDetonation();
 });
 
@@ -1737,11 +1782,19 @@ function draw3D(now) {
 
   // Saber swing arc visual
   if (player.saberSwingT > 0) {
+    const swingArc = player.saberSwingArc || Math.PI / 5;
+    const swingRange = player.saberSwingRange || 160;
     const swingMesh = getOrCreateMesh(saberSwingKey, () => {
-      const geo = new THREE.RingGeometry(14, 165, 16, 1, -Math.PI / 10, Math.PI / 5);
+      const geo = new THREE.RingGeometry(14, swingRange, 16, 1, -swingArc / 2, swingArc);
       const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
       return new THREE.Mesh(geo, mat);
     });
+    // Recreate geometry if arc/range changed from powerups
+    const gp = swingMesh.geometry.parameters;
+    if (Math.abs(gp.outerRadius - swingRange) > 1 || Math.abs(gp.thetaLength - swingArc) > 0.01) {
+      swingMesh.geometry.dispose();
+      swingMesh.geometry = new THREE.RingGeometry(14, swingRange, 16, 1, -swingArc / 2, swingArc);
+    }
     const frac = player.saberSwingT / 0.2;
     swingMesh.position.set(player.x, player.y, 12);
     swingMesh.rotation.z = player.saberSwingAngle;
@@ -2363,6 +2416,8 @@ function drawHUD(now) {
     // Title
     ctx.fillStyle = '#ff0'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
     ctx.fillText('DEBUG MENU', W / 2, baseY + 24);
+    ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+    ctx.fillText(`WAVE ${wave}`, W / 2, baseY + 10);
     // Clear settings button
     const clearBtnW = 170, clearBtnH = 24;
     const clearBtnX = W / 2 - clearBtnW / 2, clearBtnY = baseY + 38;
@@ -2372,7 +2427,7 @@ function drawHUD(now) {
     ctx.strokeStyle = clearHover ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
     ctx.strokeRect(clearBtnX, clearBtnY, clearBtnW, clearBtnH);
     ctx.fillStyle = clearHover ? '#fff' : '#888'; ctx.font = '10px monospace';
-    ctx.fillText('CLEAR DEBUG SETTINGS', W / 2, clearBtnY + 16);
+    ctx.fillText('RESET DEBUG SETTINGS', W / 2, clearBtnY + 16);
     // Tabs
     const tabY = baseY + headerH;
     const tabW = DEBUG_PANEL_W / 6;
@@ -2411,9 +2466,17 @@ function drawHUD(now) {
         }
       }
       if (items[i].enemyType) {
-        const count = enemies.filter(e => e.type === items[i].enemyType).length;
+        const count = enemies.filter(e => e.type === items[i].enemyType && e.hp > 0).length;
         ctx.fillStyle = count > 0 ? '#ff0' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
-        ctx.fillText(count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        ctx.fillText('W' + wave + '  x' + count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].powerupId) {
+        const k = items[i].powerupId;
+        const val = player[k] || 0;
+        if (val > 0) {
+          ctx.fillStyle = '#ff0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+          ctx.fillText(Math.ceil(val) + 's', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        }
       }
       if (items[i].weaponId) {
         const active = (player.saber > 0 ? 'saber' : player.shotgun > 0 ? 'shotgun' : player.minigun > 0 ? 'minigun' : player.grenade > 0 ? 'grenade' : 'pistol') === items[i].weaponId;
@@ -2426,6 +2489,18 @@ function drawHUD(now) {
         const on = items[i].color !== '#888';
         ctx.fillStyle = on ? '#4f4' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 11px monospace';
         ctx.fillText(on ? 'ON' : 'OFF', panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].showLevel) {
+        ctx.fillStyle = '#ff0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+        ctx.fillText('Lv' + playerLevel, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].showHp) {
+        ctx.fillStyle = '#4f4'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(player.hp + '/' + player.maxHp, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+      }
+      if (items[i].showWave) {
+        ctx.fillStyle = '#fa0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
+        ctx.fillText('W' + wave, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
     }
     ctx.textAlign = 'left';
