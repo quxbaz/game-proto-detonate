@@ -383,7 +383,7 @@ function getDebugItems() {
     { label: 'SMALL',    color: '#4f8', enemyType: 'small',    action: () => spawnEnemy('small') },
     { label: 'MEDIUM',   color: '#f84', enemyType: 'medium',   action: () => spawnEnemy('medium') },
     { label: 'LARGE',    color: '#f44', enemyType: 'large',    action: () => spawnEnemy('large') },
-    { label: 'RUNNER',   color: '#8ff', enemyType: 'runner',   action: () => spawnEnemy('runner') },
+    { label: 'CHASER',   color: '#8ff', enemyType: 'chaser',   action: () => spawnEnemy('chaser') },
     { label: 'SPAWNER',  color: '#a6a', enemyType: 'spawner',  action: () => spawnEnemy('spawner') },
     { label: 'ELECTRIC', color: '#ff0', enemyType: 'electric', action: () => spawnEnemy('electric') },
     { label: 'BOSS',     color: '#f22', enemyType: 'boss',     action: () => spawnEnemy('boss') },
@@ -692,7 +692,7 @@ function endGame() {
 function spawnEnemy(forceType) {
   let type = forceType;
   if (!type) {
-    const types = ['small', 'medium', 'large', 'runner', 'spawner', 'electric'];
+    const types = ['small', 'medium', 'large', 'chaser', 'spawner', 'electric'];
     const weights = [0.30, 0.25, 0.12, 0.15, 0.08, 0.10];
     let r = Math.random(), cumul = 0;
     type = 'small';
@@ -706,7 +706,7 @@ function spawnEnemy(forceType) {
     small:    { r: 12, hp: 5,  maxHp: 5,  speed: 60,  color: '#4f8', score: 10,  sizeClass: 0 },
     medium:   { r: 18, hp: 12, maxHp: 12, speed: 45,  color: '#f84', score: 25,  sizeClass: 1 },
     large:    { r: 26, hp: 25, maxHp: 25, speed: 30,  color: '#f44', score: 50,  sizeClass: 2 },
-    runner:   { r: 16, hp: 3,  maxHp: 3,  speed: 120, color: '#8ff', score: 15,  sizeClass: 0 },
+    chaser:   { r: 16, hp: 3,  maxHp: 3,  speed: 120, color: '#8ff', score: 15,  sizeClass: 0 },
     spawner:  { r: 28, hp: 40, maxHp: 40, speed: 18,  color: '#a6a', score: 60,  sizeClass: 2 },
     electric: { r: 16, hp: 15, maxHp: 15, speed: 35,  color: '#ff0', score: 35,  sizeClass: 1 },
     boss:     { r: 40, hp: 80, maxHp: 80, speed: 20,  color: '#f22', score: 200, sizeClass: 3 },
@@ -1623,7 +1623,7 @@ function draw3D(now) {
           color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
           emissiveIntensity: 0.3, metalness: 0.3, roughness: 0.7
         });
-      } else if (e.type === 'runner') {
+      } else if (e.type === 'chaser') {
         geo = new THREE.SphereGeometry(e.r, 16, 12);
         mat = new THREE.MeshStandardMaterial({
           color: new THREE.Color(e.color), emissive: new THREE.Color(e.color),
@@ -1641,16 +1641,16 @@ function draw3D(now) {
       }
       const m = new THREE.Mesh(geo, mat);
       // Eyes
-      const eyeSize = e.type === 'boss' ? 5 : e.type === 'runner' ? 2 : 2.5;
+      const eyeSize = e.type === 'boss' ? 5 : e.type === 'chaser' ? 2 : 2.5;
       const eyeGeo = new THREE.SphereGeometry(eyeSize, 6, 6);
       const eyeMat = new THREE.MeshBasicMaterial({ color: e.type === 'boss' ? 0xffff00 : 0x111111 });
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      const eyeZ = e.type === 'runner' ? e.r * 0.7 : e.type === 'hive' ? e.r * 0.6 : (e.type === 'boss' ? 11 : e.type === 'large' || e.type === 'spawner' ? 8 : 5);
+      const eyeZ = e.type === 'chaser' ? e.r * 0.7 : e.type === 'hive' ? e.r * 0.6 : (e.type === 'boss' ? 11 : e.type === 'large' || e.type === 'spawner' ? 8 : 5);
       eye.position.set(e.r * 0.5, 0, eyeZ);
       eye.name = 'eye';
       m.add(eye);
       // Runner: speed trail rings
-      if (e.type === 'runner') {
+      if (e.type === 'chaser') {
         for (let ri = 0; ri < 3; ri++) {
           const trailGeo = new THREE.TorusGeometry(e.r + 4 + ri * 5, 0.6, 4, 16);
           const trailMat = new THREE.MeshBasicMaterial({ color: 0x88ffff, transparent: true, opacity: 0.4 - ri * 0.12 });
@@ -1735,7 +1735,7 @@ function draw3D(now) {
       }
     }
     // Runner: animated speed trail rings
-    if (e.type === 'runner') {
+    if (e.type === 'chaser') {
       for (let ri = 0; ri < 3; ri++) {
         const trail = mesh.getObjectByName('trail' + ri);
         if (trail) {
