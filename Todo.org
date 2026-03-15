@@ -17,6 +17,8 @@ Todo
   - [ ] Add as much logging as possible (with data). You need a way detect bugs/crashes
     during iterations.
   - [ ] Use event/data-payload system. This should help with finding bugs/crashes.
+  - [ ] Add as many tests as you can and run the tests automatically every
+    reload. Regression tests are extremely useful.
 
 * HUD
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
