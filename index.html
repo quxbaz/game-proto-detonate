@@ -450,6 +450,7 @@ function handleDebugClick(mx, my, count, subtract) {
     const tx = panelX + t * tabW;
     if (mx >= tx && mx <= tx + tabW && my >= tabY && my <= tabY + tabH) {
       debugTab = t;
+      saveDebugSettings();
       return;
     }
   }
@@ -889,9 +890,7 @@ function update(dt) {
         const angularRadius = d > 0 ? Math.atan2(e.r, d) : Math.PI;
         if (Math.abs(diff) > saberArc / 2 + angularRadius) continue;
         e.hp -= saberDmg;
-        e.charge = (e.charge || 0) + 1;
         spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
-        spawnFloatingText(e.x, e.y + e.r + 10, `CHARGE ${e.charge}`, '#ff0', 12);
       }
       spawnParticles(player.x + Math.cos(angle) * 50, player.y + Math.sin(angle) * 50, 6, '#0ff', 0.3);
     }
@@ -2426,7 +2425,7 @@ function drawHUD(now) {
     ctx.fillStyle = '#ff0'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
     ctx.fillText('DEBUG MENU', W / 2, baseY + 24);
     ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
-    ctx.fillText(`WAVE ${wave}`, W / 2, baseY + 10);
+    ctx.fillText(`WAVE ${Math.floor(wave)}`, W / 2, baseY + 10);
     // Clear settings button
     const clearBtnW = 170, clearBtnH = 24;
     const clearBtnX = W / 2 - clearBtnW / 2, clearBtnY = baseY + 38;
@@ -2477,7 +2476,7 @@ function drawHUD(now) {
       if (items[i].enemyType) {
         const count = enemies.filter(e => e.type === items[i].enemyType && e.hp > 0).length;
         ctx.fillStyle = count > 0 ? '#ff0' : '#666'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
-        ctx.fillText('W' + wave + '  x' + count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        ctx.fillText('W' + Math.floor(wave) + '  x' + count, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
       if (items[i].powerupId) {
         const k = items[i].powerupId;
@@ -2508,7 +2507,7 @@ function drawHUD(now) {
       }
       if (items[i].showWave) {
         ctx.fillStyle = '#fa0'; ctx.textAlign = 'right'; ctx.font = 'bold 12px monospace';
-        ctx.fillText('W' + wave, panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
+        ctx.fillText('W' + Math.floor(wave), panelX + DEBUG_PANEL_W - 12, iy + DEBUG_ITEM_H / 2 + 4);
       }
     }
     ctx.textAlign = 'left';
