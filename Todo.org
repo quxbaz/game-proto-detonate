@@ -113,7 +113,7 @@ Todo
      damage. Each charge stack deals additional damage. Charged enemies should
      glow yellow. Show the charge count also on top of the enemy. CHARGE is a
      unique mechanic that will be reused.
-  10) [ ] Add LANCE melee weapon. LANCE is similar to SABER, but attacks in a
+  10) [X] Add LANCE melee weapon. LANCE is similar to SABER, but attacks in a
       long straight triangle with the tip at the furthest point. It's secondary
       ability (right-click) fires a spear projectile in the direction of the
       cursor, damaging enemies in its path. Like SABER, show a charge effect
@@ -142,8 +142,12 @@ Todo
   18) [X] Powerups and skills should work with SABER. SPREAD should increase arc
       range (with a reasonable limit). DOUBLE TAP should add an additional saber
       strike after a brief delay. BIG BULLETS should increase range.
+  19) [X] Remove LANCE burst effect.
 
 * DETONATORS
+
+* ITEMS
+  1) [ ] Items should float slowly randomly, but should not be attracted to the player.
 
 * POWERUPS
   1) [X] Powerups scale scale with the player's base stats when possible. For
