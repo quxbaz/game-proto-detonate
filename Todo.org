@@ -10,6 +10,7 @@ Todo
   - What elements are in balance? What does progression look like?
   - Ammo system.
   - Slow the game down.
+  - Part of the fun is combining things, like the SABER and HOMING.
 
 * HUD
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
