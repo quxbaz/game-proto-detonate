@@ -509,7 +509,7 @@ function init() {
     spread: 0, rapid: 0, megablast: 0, shield: 0,
     ricochet: 0, homing: 0, overcharge: 0,
     shotgun: 0, minigun: 0, grenade: 0, saber: 0,
-    detonationBonus: 1, angle: 0, saberSwingT: 0
+    detonationBonus: 1, angle: 0, saberSwingT: 0, saberRepelCD: 0
   };
   bullets = [];
   grenades = [];
@@ -834,6 +834,7 @@ function update(dt) {
   if (player.grenade > 0) player.grenade -= dt;
   if (player.saber > 0) player.saber -= dt;
   if (player.saberSwingT > 0) player.saberSwingT -= dt;
+  if (player.saberRepelCD > 0) player.saberRepelCD -= dt;
 
   // Combo
   if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
@@ -1041,7 +1042,8 @@ function update(dt) {
   // Detonate
   if ((keys['KeyX'] || keys['ShiftLeft'] || keys['ShiftRight']) && !detonating) {
     detonating = true;
-    triggerDetonation();
+    if (player.saber > 0) triggerSaberRepel();
+    else triggerDetonation();
   }
   if (!keys['KeyX'] && !keys['ShiftLeft'] && !keys['ShiftRight']) detonating = false;
 
@@ -1143,11 +1145,21 @@ function update(dt) {
     // Move toward player with slight wobble
     const toPlayerX = player.x - e.x, toPlayerY = player.y - e.y;
     const tpDist = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY);
-    if (tpDist > 1 && e.speed > 0) {
+    if (e.stunT > 0) e.stunT -= dt;
+    if (tpDist > 1 && e.speed > 0 && !(e.stunT > 0)) {
       e.wobble += dt * 2;
       const wobbleAngle = Math.atan2(toPlayerY, toPlayerX) + Math.sin(e.wobble) * 0.3;
       e.x += Math.cos(wobbleAngle) * e.speed * dt;
       e.y += Math.sin(wobbleAngle) * e.speed * dt;
+    }
+    // Repel velocity
+    if (e.repelVx || e.repelVy) {
+      e.x += (e.repelVx || 0) * dt;
+      e.y += (e.repelVy || 0) * dt;
+      const decay = Math.pow(0.02, dt);
+      e.repelVx = (e.repelVx || 0) * decay;
+      e.repelVy = (e.repelVy || 0) * decay;
+      if (Math.abs(e.repelVx) < 1 && Math.abs(e.repelVy) < 1) { e.repelVx = 0; e.repelVy = 0; }
     }
     for (let s of e.stuck) s.pulseT += dt;
 
@@ -1576,10 +1588,36 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
   }
 }
 
+// ============ SABER REPEL ============
+function triggerSaberRepel() {
+  if (player.saberRepelCD > 0) return;
+  player.saberRepelCD = 5;
+  const repelRadius = 220;
+  const repelForce = 2000;
+  sfx('explode', { intensity: 0.5 });
+  spawnParticles(player.x, player.y, 20, '#0ff', 0.4);
+  explosions.push({ x: player.x, y: player.y, r: 0, maxR: repelRadius, t: 0, dur: 0.2, repel: true });
+  for (let e of enemies) {
+    if (e.hp <= 0) continue;
+    const dx = e.x - player.x, dy = e.y - player.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > repelRadius + e.r) continue;
+    const falloff = 1 - d / (repelRadius + e.r);
+    const force = repelForce * falloff;
+    const nx = d > 0 ? dx / d : 0, ny = d > 0 ? dy / d : 1;
+    e.repelVx = (e.repelVx || 0) + nx * force;
+    e.repelVy = (e.repelVy || 0) + ny * force;
+    e.stunT = 2;
+  }
+}
+
 // ============ RIGHT-CLICK DETONATE (single listener) ============
 document.addEventListener('mousedown', e => {
   if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, e.shiftKey ? 10 : 1, true); return; }
-  if (e.button === 2 && !gameOver) triggerDetonation();
+  if (e.button === 2 && !gameOver) {
+    if (player.saber > 0) triggerSaberRepel();
+    else triggerDetonation();
+  }
 });
 
 // Shared geos & mats
@@ -1778,7 +1816,17 @@ function draw3D(now) {
       }
     }
     // Charge glow: yellow emissive overlay
-    if (e.charge > 0) {
+    if (e.stunT > 0) {
+      if (!e._stunKey) e._stunKey = {};
+      const stunRing = getOrCreateMesh(e._stunKey, () => {
+        const geo = new THREE.RingGeometry(e.r + 10, e.r + 13, 32);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+        return new THREE.Mesh(geo, mat);
+      });
+      const stunPulse = 0.5 + 0.5 * Math.sin(now * 0.01);
+      stunRing.position.set(e.x, e.y, 10);
+      stunRing.material.opacity = 0.4 + stunPulse * 0.4;
+    } else if (e.charge > 0) {
       const chargePulse = 0.4 + 0.3 * Math.sin(now * 0.01);
       const chargeIntensity = Math.min(e.charge * 0.15, 0.8) + chargePulse * 0.2;
       mesh.material.emissive.setRGB(1, 1, 0);
@@ -1933,7 +1981,21 @@ function draw3D(now) {
     mesh.position.set(ex.x, ex.y, 2);
     mesh.scale.setScalar(Math.max(0.1, ex.r));
     mesh.rotation.z = ex.rot || 0;
-    if (ex.indicator) {
+    if (ex.repel) {
+      ex.x = player.x; ex.y = player.y;
+      mesh.position.set(player.x, player.y, 2);
+      const frac = ex.t / ex.dur;
+      const visualMax = ex.maxR * 1.6;
+      const innerR = frac * visualMax * 0.75;
+      const outerR = frac * visualMax;
+      if (mesh.geometry) mesh.geometry.dispose();
+      mesh.geometry = new THREE.RingGeometry(innerR, outerR, 48);
+      mesh.material.opacity = (1 - frac) * (1 - frac);
+      mesh.material.color.setRGB(0, 1, 1);
+      mesh.scale.setScalar(1);
+      const core = mesh.getObjectByName('core');
+      if (core) { core.visible = false; }
+    } else if (ex.indicator) {
       mesh.material.opacity = alpha * 0.25;
       mesh.material.color.setRGB(1, 0.15, 0.1);
       const core = mesh.getObjectByName('core');
@@ -1944,7 +2006,7 @@ function draw3D(now) {
       const core = mesh.getObjectByName('core');
       if (core) { core.scale.setScalar(0.5); core.material.opacity = Math.max(alpha, 0.5); }
     }
-    if (li < MAX_EXP_LIGHTS) {
+    if (li < MAX_EXP_LIGHTS && !ex.repel) {
       const lt = expLights[li++];
       lt.visible = true;
       lt.position.set(ex.x, ex.y, 30);
@@ -2516,10 +2578,28 @@ function drawHUD(now) {
   // Crosshair - follows mouse directly (drawn after overlays so it's always visible)
   const cx = mouse.sx;
   const cy = mouse.sy;
-  // Detonation radius ring
-  ctx.strokeStyle = 'rgba(255,60,40,0.9)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI * 2); ctx.stroke();
+  // Detonation radius ring / Saber repel cooldown
+  if (player.saber > 0) {
+    const px = W / 2, py = H / 2;
+    const cd = player.saberRepelCD;
+    if (cd > 0) {
+      const frac = cd / 5;
+      ctx.strokeStyle = 'rgba(0,255,255,0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 40, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - frac)); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,255,255,0.6)'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(Math.ceil(cd) + 's', px, py + 52);
+      ctx.textAlign = 'left';
+    } else {
+      ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 40, 0, Math.PI * 2); ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = 'rgba(255,60,40,0.9)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI * 2); ctx.stroke();
+  }
   // Main crosshair
   ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.stroke();
