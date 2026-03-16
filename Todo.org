@@ -167,6 +167,7 @@ Todo
   20) [ ] Add ORB weapon. ORB throws out a slow moving glowing orb which
       releases BLUE SHRAPNEL around itself in a spiral pattern. BLUE SHRAPNEL
       slows down enemies it attaches to.
+  21) [ ] Using the LANCE secondary ability removes the weapon.
 
 * DETONATORS
 
