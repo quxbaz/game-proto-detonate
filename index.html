@@ -1011,12 +1011,13 @@ function update(dt) {
     const gArc = gCount > 1 ? 0.3 + extraShots * 0.08 : 0;
     const gSpeedMult = 1 + getPerkCount('bulletSpeed') * 0.2;
     const gSizeMult = 1 + getPerkCount('bulletSize') * 0.25;
+    const gSpeed = 600 * gSpeedMult; // constant speed
+    const travelTime = Math.max(0.7, gDist / gSpeed); // minimum 0.7s airtime
     for (let gi = 0; gi < gCount; gi++) {
       const offset = gCount > 1 ? (gi / (gCount - 1) - 0.5) * gArc : 0;
       const a2 = gAngle + offset;
       const tx = player.x + Math.cos(a2) * gDist;
       const ty = player.y + Math.sin(a2) * gDist;
-      const travelTime = Math.max(0.15, Math.min(gDist / (600 * gSpeedMult), 0.6));
       grenades.push({
         x: player.x, y: player.y,
         sx: player.x, sy: player.y,
@@ -1087,11 +1088,13 @@ function update(dt) {
     const g = grenades[i];
     g.t += dt;
     const frac = Math.min(g.t / g.dur, 1);
-    // Lerp position
+    // Constant horizontal speed
     g.x = g.sx + (g.tx - g.sx) * frac;
     g.y = g.sy + (g.ty - g.sy) * frac;
-    // Arc height for visual
-    g.z = Math.sin(frac * Math.PI) * 40;
+    // Parabolic arc (gravity) — peaks at midpoint, lands at frac=1
+    const throwDist = Math.sqrt((g.tx - g.sx) ** 2 + (g.ty - g.sy) ** 2);
+    const arcHeight = Math.max(60, 30 + throwDist * 0.2);
+    g.z = arcHeight * 4 * frac * (1 - frac);
     if (frac >= 1) {
       // Explode: shrapnel ring
       const shrapnelCount = 24 + Math.floor(getPerkCount('shrapnel') * 6);
@@ -2119,15 +2122,18 @@ function draw3D(now) {
       return sm;
     });
     shadow.position.set(g.x, g.y, 0.5);
-    const shadowScale = 1 - (g.z / 60) * 0.3;
-    shadow.scale.setScalar(shadowScale);
-    shadow.material.opacity = 0.3 * (1 - g.z / 60);
+    const sThrowDist = Math.sqrt((g.tx - g.sx) ** 2 + (g.ty - g.sy) ** 2);
+    const maxArc = 30 + sThrowDist * 0.2;
+    const zFrac = maxArc > 0 ? g.z / maxArc : 0;
+    shadow.scale.setScalar(1.5 + zFrac * 0.5);
+    shadow.material.opacity = 0.2 + zFrac * 0.1;
 
     const mesh = getOrCreateMesh(g, () => {
       const group = new THREE.Group();
       const body = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x44ff44 }));
+      body.scale.set(1, 0.6, 0.6); // oblong shape
       group.add(body);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1, 4, 8), new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.5 }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(11, 1, 4, 8), new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.5 }));
       ring.name = 'gring';
       group.add(ring);
       return group;
@@ -2137,8 +2143,8 @@ function draw3D(now) {
     const lobScale = 1 + 0.8 * Math.sin(frac * Math.PI);
     mesh.position.set(g.x, g.y + lobHeight, 10 + g.z);
     mesh.scale.setScalar(lobScale);
-    mesh.rotation.z = frac * Math.PI * 4;
-    mesh.rotation.x = frac * Math.PI * 3;
+    mesh.rotation.z = frac * Math.PI * 8;
+    mesh.rotation.x = frac * Math.PI * 5;
     const gring = mesh.getObjectByName('gring');
     if (gring) { gring.rotation.z = now * 0.01; gring.rotation.x = now * 0.007; }
   }
