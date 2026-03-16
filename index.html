@@ -908,9 +908,9 @@ function update(dt) {
         e.hp -= dmg;
         if (isCrit) {
           spawnParticles(e.x, e.y, 10, '#ff0', 0.4);
-          spawnFloatingText(e.x, e.y + e.r + 10, `CRIT ${dmg}!`, '#f44', 16);
+          spawnFloatingText(e.x, e.y + e.r + 10, `CRIT ${dmg}!`, '#f44', 22);
         } else {
-          spawnFloatingText(e.x, e.y + e.r + 5, `${dmg}`, '#fff', 11);
+          spawnFloatingText(e.x, e.y + e.r + 5, `${dmg}`, '#fff', 16);
         }
         spawnParticles(e.x, e.y, 4, '#4f4', 0.3);
       }
@@ -977,7 +977,7 @@ function update(dt) {
         const angularRadius = d > 0 ? Math.atan2(e.r, d) : Math.PI;
         if (Math.abs(diff) > saberArc / 2 + angularRadius) continue;
         e.hp -= saberDmg;
-        spawnFloatingText(e.x, e.y + e.r + 5, `${saberDmg}`, '#fff', 11);
+        spawnFloatingText(e.x, e.y + e.r + 5, `${saberDmg}`, '#fff', 16);
         spawnParticles(e.x, e.y, 4, '#0ff', 0.3);
       }
       spawnParticles(player.x + Math.cos(angle) * 50, player.y + Math.sin(angle) * 50, 6, '#0ff', 0.3);
@@ -1199,7 +1199,7 @@ function update(dt) {
           if (e.hp <= 0) continue;
           if (circlesOverlap(b, b.r, e, e.r)) {
             e.hp -= b.dmg;
-            spawnFloatingText(e.x, e.y + e.r + 5, `${b.dmg}`, '#fff', 12);
+            spawnFloatingText(e.x, e.y + e.r + 5, `${b.dmg}`, '#fff', 17);
             spawnParticles(e.x, e.y, 3, '#4f4', 0.2);
             spawnParticles(e.x, e.y, 2, '#ff0', 0.15);
           }
@@ -1363,7 +1363,7 @@ function update(dt) {
             player.invuln = 1.5;
             shakeTimer = 0.2; shakeIntensity = 4;
             spawnParticles(player.x, player.y, 8, '#ff0', 0.4);
-            spawnFloatingText(player.x, player.y - player.r - 10, '1', '#f44', 14);
+            spawnFloatingText(player.x, player.y - player.r - 10, '1', '#f44', 19);
             sfx('hit');
             if (player.hp <= 0) endGame();
           } else {
@@ -1397,7 +1397,7 @@ function update(dt) {
         player.invuln = 0.5;
       } else {
         player.hp--;
-        spawnFloatingText(player.x, player.y - player.r - 10, '1', '#f44', 14);
+        spawnFloatingText(player.x, player.y - player.r - 10, '1', '#f44', 19);
         player.invuln = 1.5;
         shakeTimer = 0.3; shakeIntensity = 6;
         spawnParticles(player.x, player.y, 10, '#f00', 0.5);
@@ -1636,7 +1636,7 @@ function detonateGrenadeGroup(group, idx, gid) {
 
   // Damage enemies
   for (let e of enemies) {
-    if (dist(pt, e) < gsRadius + e.r) { e.hp -= 1; e.explodedBy = true; spawnFloatingText(e.x, e.y + e.r + 5, '1', '#fff', 11); }
+    if (dist(pt, e) < gsRadius + e.r) { e.hp -= 1; e.explodedBy = true; spawnFloatingText(e.x, e.y + e.r + 5, '1', '#fff', 16); }
   }
 
   // Chain: check if this explosion reaches shrapnel from other groups
@@ -1670,7 +1670,7 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
     const count = e.stuck.length;
     e.hp -= count;
     e.explodedBy = true;
-    spawnFloatingText(e.x, e.y + e.r + 5, `${count}`, '#fff', 13);
+    spawnFloatingText(e.x, e.y + e.r + 5, `${count}`, '#fff', 18);
     const baseArea = 140 * 140 * Math.PI;
     const area = Math.min(baseArea + count * 8000, 800 * 800 * Math.PI) * megaMult * overMult;
     const r = Math.sqrt(area / Math.PI);
@@ -1688,7 +1688,7 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
       if (dist(other, e) < r) {
         other.hp -= count;
         other.explodedBy = true;
-        spawnFloatingText(other.x, other.y + other.r + 5, `${count}`, '#fff', 11);
+        spawnFloatingText(other.x, other.y + other.r + 5, `${count}`, '#fff', 16);
       }
     }
     e.stuckBeforeDetonation = count;
@@ -1740,12 +1740,12 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
       if (dist(other, e) < chargeRadius + other.r) {
         other.hp -= chargeDmg;
         other.explodedBy = true;
-        spawnFloatingText(other.x, other.y + other.r + 5, `${chargeDmg}`, '#fff', 11);
+        spawnFloatingText(other.x, other.y + other.r + 5, `${chargeDmg}`, '#fff', 16);
       }
     }
     e.hp -= chargeDmg;
     e.explodedBy = true;
-    spawnFloatingText(e.x, e.y + e.r + 5, `${chargeDmg}`, '#fff', 13);
+    spawnFloatingText(e.x, e.y + e.r + 5, `${chargeDmg}`, '#fff', 18);
     // Chain to nearby charged/stuck enemies
     for (let other of enemies) {
       if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
@@ -1776,7 +1776,7 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
 function triggerSaberRepel() {
   if (player.saberRepelCD > 0 && !debugNoCooldowns) return;
   if (!debugNoCooldowns) player.saberRepelCD = 5;
-  const repelRadius = 190;
+  const repelRadius = 250;
   const repelForce = 2000;
   sfx('explode', { intensity: 0.5 });
   spawnParticles(player.x, player.y, 20, '#0ff', 0.4);
@@ -1792,7 +1792,7 @@ function triggerSaberRepel() {
     const nx = d > 0 ? dx / d : 0, ny = d > 0 ? dy / d : 1;
     e.repelVx = (e.repelVx || 0) + nx * force;
     e.repelVy = (e.repelVy || 0) + ny * force;
-    e.stunT = 2;
+    e.stunT = 3.5;
   }
 }
 
@@ -2490,7 +2490,8 @@ function drawHUD(now) {
 
   // Floating texts (convert world to screen)
   for (let ft of floatingTexts) {
-    const alpha = 1 - ft.t / ft.dur;
+    const holdTime = 0.35;
+    const alpha = ft.t < holdTime ? 1 : 1 - (ft.t - holdTime) / (ft.dur - holdTime);
     const sx = W / 2 + (ft.x - player.x);
     const sy = H / 2 - (ft.y - player.y);
     ctx.globalAlpha = alpha;
