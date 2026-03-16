@@ -226,6 +226,7 @@ let startScreen = true;
 let paused = false;
 let debugMenu = false;
 let debugTab = 0;
+const ENEMY_SPEED_MULT = 0.7;
 let debugNoEnemies = false;
 let debugMode = false;
 let debugNoDrops = false;
@@ -1280,8 +1281,8 @@ function update(dt) {
     if (tpDist > 1 && e.speed > 0 && !(e.stunT > 0)) {
       e.wobble += dt * 2;
       const wobbleAngle = Math.atan2(toPlayerY, toPlayerX) + Math.sin(e.wobble) * 0.3;
-      e.x += Math.cos(wobbleAngle) * e.speed * dt;
-      e.y += Math.sin(wobbleAngle) * e.speed * dt;
+      e.x += Math.cos(wobbleAngle) * e.speed * ENEMY_SPEED_MULT * dt;
+      e.y += Math.sin(wobbleAngle) * e.speed * ENEMY_SPEED_MULT * dt;
     }
     // Repel velocity
     if (e.repelVx || e.repelVy) {
@@ -1425,8 +1426,8 @@ function update(dt) {
       sfx('enemyDie');
       gainXp(e.score);
 
-      // Shrapnel
-      if (e.explodedBy) {
+      // Shrapnel on death (disabled by default — future perk/skill/weapon)
+      if (e.explodedBy && player.deathShrapnel) {
         const stuckCount = e.stuckBeforeDetonation || (e.stuck ? e.stuck.length : 0);
         const hpFactor = Math.ceil(e.maxHp / 3);
         const shrapnelMult = 1 + getPerkCount('shrapnel') * 0.5;
@@ -1719,7 +1720,7 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
   }
 
   if (nextWave.length > 0 || nextShrapnel.length > 0) {
-    setTimeout(() => chainDetonate(nextWave, depth + 1, stuckBonus, nextShrapnel), 150);
+    setTimeout(() => chainDetonate(nextWave, depth + 1, stuckBonus, nextShrapnel), 220);
   }
 }
 
