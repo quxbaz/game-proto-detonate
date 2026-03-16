@@ -1830,7 +1830,7 @@ function triggerLanceSpear() {
 // ============ RIGHT-CLICK DETONATE (single listener) ============
 document.addEventListener('mousedown', e => {
   if (e.button === 2 && debugMenu) { handleDebugClick(e.clientX, e.clientY, e.shiftKey ? 10 : 1, true); return; }
-  if (e.button === 2 && !gameOver) {
+  if (e.button === 2 && !gameOver && !paused && !perkChoices) {
     if (player.lance > 0) triggerLanceSpear();
     else if (player.saber > 0) triggerSaberRepel();
     else triggerDetonation();
