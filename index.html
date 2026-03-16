@@ -226,7 +226,7 @@ let startScreen = true;
 let paused = false;
 let debugMenu = false;
 let debugTab = 0;
-const ENEMY_SPEED_MULT = 0.7;
+const ENEMY_SPEED_MULT = 0.85;
 let debugNoEnemies = false;
 let debugMode = false;
 let debugNoDrops = false;
@@ -1580,22 +1580,34 @@ function triggerDetonation() {
   }
 }
 
+const DETONATE_INTERVAL = 120; // ms between sequential detonations
+
 function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
+  // Build a flat queue of all detonations (shrapnel first, then enemies)
+  const queue = [];
+  if (shrapnelWave && shrapnelWave.length > 0) {
+    for (const b of shrapnelWave) queue.push({ shrapnel: b });
+  }
+  for (const e of wave) queue.push({ enemy: e });
+  processDetonationQueue(queue, 0, depth, stuckBonus);
+}
+
+function processDetonationQueue(queue, idx, depth, stuckBonus) {
+  if (idx >= queue.length) return;
   const megaMult = player.megablast > 0 ? 2 : 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
   const chainPerk = 1 + getPerkCount('chainRange') * 0.25;
   const blastRadius = 80 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
   const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
-  const nextWave = [];
-  const nextShrapnel = [];
-  const detonationPoints = []; // track explosion centers for shrapnel chaining
+  const chainedQueue = [];
 
-  // Detonate grenade shrapnel in this wave
-  if (shrapnelWave && shrapnelWave.length > 0) {
-    for (const b of shrapnelWave) {
-      const bi = bullets.indexOf(b);
-      if (bi < 0) continue;
+  const item = queue[idx];
+
+  if (item.shrapnel) {
+    const b = item.shrapnel;
+    const bi = bullets.indexOf(b);
+    if (bi >= 0) {
       const r = 40 * megaMult * overMult;
       explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
       spawnParticles(b.x, b.y, 6, '#f44', 0.4);
@@ -1605,21 +1617,24 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
       for (let e of enemies) {
         if (dist(b, e) < gsRadius + e.r) { e.hp -= 1; e.explodedBy = true; }
       }
-      detonationPoints.push({ x: b.x, y: b.y, radius: gsRadius });
+      // Collect nearby grenade shrapnel for chaining
+      for (let bi2 = bullets.length - 1; bi2 >= 0; bi2--) {
+        const b2 = bullets[bi2];
+        if (!b2.grenadeShrapnel || b2._detonating) continue;
+        if (dist(b2, b) <= gsRadius) {
+          b2._detonating = true;
+          chainedQueue.push({ shrapnel: b2 });
+        }
+      }
       bullets.splice(bi, 1);
     }
   }
 
-  for (let e of wave) {
-    if (depth > 0) {
-      const now = performance.now();
-      if (now - (e._lastDetonateT || 0) < 300) continue;
-      e._lastDetonateT = now;
-    } else {
-      e._lastDetonateT = performance.now();
-    }
+  if (item.enemy) {
+    const e = item.enemy;
+    e._lastDetonateT = performance.now();
 
-    // Stuck bullet detonation — each stuck bullet deals 1 damage
+    // Stuck bullet detonation
     if (e.stuck.length > 0) {
       const count = e.stuck.length;
       e.hp -= count;
@@ -1635,7 +1650,7 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
       if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
       sfx('explode', { intensity: count * megaMult });
       if (depth > 0) sfx('chain', { depth });
-      // Area damage to nearby enemies — 1 damage per stuck bullet
+      // Area damage to nearby enemies
       for (let other of enemies) {
         if (other === e) continue;
         if (dist(other, e) < r) {
@@ -1645,13 +1660,22 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
       }
       e.stuckBeforeDetonation = count;
       e.stuck = [];
-      detonationPoints.push({ x: e.x, y: e.y, radius: (blastRadius + r) * chainPerk });
       // Chain to nearby stuck/charged enemies
       for (let other of enemies) {
-        if (performance.now() - (other._lastDetonateT || 0) < 300 || wave.includes(other)) continue;
+        if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
+        if (queue.some(q => q.enemy === other) || chainedQueue.some(q => q.enemy === other)) continue;
         if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
         if (dist(other, e) < (blastRadius + r) * chainPerk) {
-          if (!nextWave.includes(other)) nextWave.push(other);
+          chainedQueue.push({ enemy: other });
+        }
+      }
+      // Collect nearby grenade shrapnel
+      for (let bi = bullets.length - 1; bi >= 0; bi--) {
+        const b = bullets[bi];
+        if (!b.grenadeShrapnel || b._detonating) continue;
+        if (dist(b, e) <= (blastRadius + r) * chainPerk) {
+          b._detonating = true;
+          chainedQueue.push({ shrapnel: b });
         }
       }
     }
@@ -1693,34 +1717,25 @@ function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
       }
       e.hp -= chargeDmg;
       e.explodedBy = true;
-      detonationPoints.push({ x: e.x, y: e.y, radius: chargeRadius });
       // Chain to nearby charged/stuck enemies
       for (let other of enemies) {
-        if (performance.now() - (other._lastDetonateT || 0) < 300 || wave.includes(other)) continue;
+        if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
+        if (queue.some(q => q.enemy === other) || chainedQueue.some(q => q.enemy === other)) continue;
         if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
         if (dist(other, e) < chargeRadius + other.r) {
-          if (!nextWave.includes(other)) nextWave.push(other);
+          chainedQueue.push({ enemy: other });
         }
       }
       e.charge = 0;
     }
   }
 
-  // Collect grenade shrapnel near detonation points for next wave
-  for (let bi = bullets.length - 1; bi >= 0; bi--) {
-    const b = bullets[bi];
-    if (!b.grenadeShrapnel || b._detonating) continue;
-    for (const pt of detonationPoints) {
-      if (dist(b, pt) <= pt.radius) {
-        nextShrapnel.push(b);
-        b._detonating = true;
-        break;
-      }
-    }
-  }
+  // Append chained items to the queue
+  for (const c of chainedQueue) queue.push(c);
 
-  if (nextWave.length > 0 || nextShrapnel.length > 0) {
-    setTimeout(() => chainDetonate(nextWave, depth + 1, stuckBonus, nextShrapnel), 220);
+  // Process next item sequentially
+  if (idx + 1 < queue.length) {
+    setTimeout(() => processDetonationQueue(queue, idx + 1, depth + 1, stuckBonus), DETONATE_INTERVAL);
   }
 }
 
