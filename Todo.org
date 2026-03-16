@@ -26,6 +26,19 @@ Todo
   3) [ ] Use event/data-payload system. This should help with finding bugs/crashes.
   4) [ ] Add as many tests as you can and run the tests automatically every
      reload. Regression tests are extremely useful.
+  5) [ ] Develop universal game engine with high performance characteristics:
+     can handle many thousands of moving units, collisions, and effects per
+     update without slowdown.
+     - [ ] Use ECS system.
+     - [ ] Highly modular. Even though AI-developed, make it easy to read,
+       understand, and modify for humans.
+     - [ ] Data-based as much as possible. This will make it easier for humans
+       to tweak values without having to depend on prompts for simple numeric
+       changes.
+     - [ ] High level of abstraction in to support ability to switch out
+       implementations.
+  6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
+     Effects, etc.
 
 * THEME
   - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
@@ -55,6 +68,8 @@ Todo
       their shrapnel, allowing it to be a valid target. Should the spark only
       consume N shrapnel, or maybe the enemy needs N shrapnel to be a valid jump
       target. Or this could be another type of detonator weapon.
+  11) [ ] Spawns become ghosts on death. Retain their shrapnel if they were not
+      actively detonated.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -71,6 +86,12 @@ Todo
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
+
+* SPARK
+  1) [ ] Detonation chain limit [?]
+
+* ENVIRONMENT
+  1) [ ] Rooms, environments, keys [?]
 
 * SPAWNS
   1) [X] Add SPAWNER spawn type. This particular unit is slow and tanky. It
