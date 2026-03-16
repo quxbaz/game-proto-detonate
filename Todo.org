@@ -42,6 +42,11 @@ Todo
      where on ending a cap is restored.
   8) [ ] Disable shrapnel on death.
   9) [ ] Scale damage. Pistol 9-13 default.
+  10) [ ] Rework detonation behavior. The spark should determine detonation
+      path. Random search within radius. Killed units should "leave behind"
+      their shrapnel, allowing it to be a valid target. Should the spark only
+      consume N shrapnel, or maybe the enemy needs N shrapnel to be a valid jump
+      target. Or this could be another type of detonator weapon.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
