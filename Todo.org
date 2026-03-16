@@ -26,7 +26,7 @@ Todo
 * UI
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
-  2) [ ] Show inflicted damage overhead enemy units (white) and also against you (red).
+  2) [X] Show inflicted damage overhead enemy units (white) and also against you (red).
 
 * GAMEPLAY
   1) [ ] Gameplay overhaul. Detonators should now be a finite resource. You
@@ -42,6 +42,7 @@ Todo
      where on ending a cap is restored.
   8) [ ] Disable shrapnel on death.
   9) [ ] Scale damage. Pistol 9-13 default.
+  10) [ ] Detonation chain reaction delay should get shorter with each successive detonation.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -52,8 +53,8 @@ Todo
      random, but predictable mess.
 
 * TWEAKS
-  1) [ ] Make SABER repel distance greater and increase stun time.
-  2) [ ] Make GRENADE animation start out fast then slow down as it reaches its target.
+  1) [X] Make SABER repel distance greater and increase stun time.
+  2) [X] Improve GRENADE lob animation.
 
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
