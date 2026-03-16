@@ -41,6 +41,7 @@ Todo
        - Physics, collisions
        - Effects
        - Updates
+       - Support low-end systems.
      - [ ] Support quick reload/feedback cycles.
      - [ ] Scripting support.
      - [ ] Platform: support all OSes, Steam, and Switch.
