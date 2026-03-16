@@ -1418,13 +1418,6 @@ function update(dt) {
       const pts = e.score * totalMult;
       score += pts;
 
-      const multParts = [];
-      if (comboMult > 1) multParts.push(`combo x${comboMult}`);
-      if (detBonus > 1) multParts.push(`det x${detBonus}`);
-      const multStr = multParts.length > 0 ? ` (${multParts.join(' ')})` : '';
-      const col = totalMult >= 10 ? '#f4f' : totalMult >= 4 ? '#ff4' : totalMult > 1 ? '#4ff' : '#fff';
-      spawnFloatingText(e.x, e.y + 20, `+${pts}${multStr}`, col, totalMult > 2 ? 18 : 14);
-
       spawnParticles(e.x, e.y, 15, e.color, 0.6);
       if (e.type === 'boss') {
         for (let k = 0; k < 5; k++) {
@@ -1527,7 +1520,7 @@ function update(dt) {
     // Remove trail when all segments have faded (800ms after last point)
     if (tr.fading && tr.points.length > 0) {
       const lastBirth = tr.points[tr.points.length - 1].birth;
-      if (performance.now() - lastBirth > 1800) chainTrails.splice(i, 1);
+      if (performance.now() - lastBirth > 3000) chainTrails.splice(i, 1);
     }
   }
 
@@ -1592,9 +1585,10 @@ function triggerDetonation() {
     // Spark travels from player to first enemy
     const target = firstWave[0];
     const d = dist(player, target);
-    const travelTime = Math.min(DETONATE_INTERVAL / 1000, d / 800);
+    const travelTime = d / CHAIN_SPARK_SPEED;
     trail.spark = { sx: player.x, sy: player.y, tx: target.x, ty: target.y, t: 0, dur: travelTime };
-    setTimeout(() => processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus, trail), DETONATE_INTERVAL);
+    const delay = travelTime * 1000 + CHAIN_REST_TIME;
+    setTimeout(() => processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus, trail), delay);
   }
 }
 
@@ -1671,7 +1665,8 @@ function detonateGrenadeGroup(group, idx, gid) {
 }
 
 // ============ ENEMY DETONATION QUEUE ============
-const DETONATE_INTERVAL = 120;
+const CHAIN_SPARK_SPEED = 10000; // world units per second
+const CHAIN_REST_TIME = 100; // ms pause after detonation before spark moves on
 
 function processEnemyDetonationQueue(queue, idx, depth, stuckBonus, trail) {
   if (idx >= queue.length) {
@@ -1795,13 +1790,17 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus, trail) {
 
   // Next enemy
   if (idx + 1 < queue.length) {
+    const next = queue[idx + 1];
+    const d = dist(e, next);
+    const travelTime = d / CHAIN_SPARK_SPEED;
     if (trail) {
-      const next = queue[idx + 1];
-      const d = dist(e, next);
-      const travelTime = Math.min(DETONATE_INTERVAL / 1000, d / 800);
-      trail.spark = { sx: e.x, sy: e.y, tx: next.x, ty: next.y, t: 0, dur: travelTime };
+      // Spark starts after rest time
+      setTimeout(() => {
+        trail.spark = { sx: e.x, sy: e.y, tx: next.x, ty: next.y, t: 0, dur: travelTime };
+      }, CHAIN_REST_TIME);
     }
-    setTimeout(() => processEnemyDetonationQueue(queue, idx + 1, depth + 1, stuckBonus, trail), DETONATE_INTERVAL);
+    const delay = travelTime * 1000 + CHAIN_REST_TIME;
+    setTimeout(() => processEnemyDetonationQueue(queue, idx + 1, depth + 1, stuckBonus, trail), delay);
   } else if (trail) {
     trail.spark = null;
     trail.fading = true;
@@ -2527,10 +2526,10 @@ function drawHUD(now) {
   // Chain detonation trails
   for (const tr of chainTrails) {
     const now2 = performance.now();
-    const segFadeDur = 1800; // each segment fades over 1.8s
+    const segFadeDur = 3000; // each segment fades over 3s
     // Draw lines between points, each segment fading independently
     if (tr.points.length > 1) {
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 5;
       for (let j = 1; j < tr.points.length; j++) {
         const p0 = tr.points[j - 1];
         const p1 = tr.points[j];
@@ -2556,7 +2555,7 @@ function drawHUD(now) {
       if (tr.points.length > 0) {
         const last = tr.points[tr.points.length - 1];
         ctx.strokeStyle = 'rgba(255, 80, 60, 0.35)';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.moveTo(W / 2 + (last.x - player.x), H / 2 - (last.y - player.y));
         ctx.lineTo(screenX, screenY);
@@ -2690,19 +2689,7 @@ function drawHUD(now) {
     ctx.textAlign = 'left';
   }
 
-  // Combo
-  if (combo > 1) {
-    const mult = Math.min(1 + Math.floor(combo / 3), 8);
-    const pulse = 0.8 + 0.2 * Math.sin(now / 100);
-    ctx.fillStyle = mult >= 5 ? '#f4f' : mult >= 3 ? '#ff4' : '#4ff';
-    ctx.globalAlpha = pulse;
-    ctx.font = `bold ${16 + mult}px monospace`;
-    ctx.fillText(`${combo} COMBO x${mult}`, W - 180, 22);
-    ctx.fillStyle = '#333'; ctx.fillRect(W - 180, 28, 100, 4);
-    ctx.fillStyle = mult >= 5 ? '#f4f' : mult >= 3 ? '#ff4' : '#4ff';
-    ctx.fillRect(W - 180, 28, 100 * (comboTimer / 2), 4);
-    ctx.globalAlpha = 1;
-  }
+  // Combo (hidden — logic still active for score multiplier)
 
   // Weapon & powerup bar (bottom center)
   {
