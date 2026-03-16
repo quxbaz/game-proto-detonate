@@ -35,6 +35,7 @@ Todo
      - [ ] Data-based as much as possible. This will make it easier for humans
        to tweak values without having to depend on prompts for simple numeric
        changes.
+     - [ ] Data-fy. Conform things to data structures whenever possible.
      - [ ] High level of abstraction in to support ability to switch out
        implementations.
   6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
