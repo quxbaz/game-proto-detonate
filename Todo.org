@@ -5,16 +5,16 @@ Todo
   2) [ ] Spatial Partitioning (Uniform Grids) vs. Spatial Hashing.
 
 * RESEARCH
-  1) Spatial Hashing
-     Instead of a fixed grid array, use a hash map keyed by grid cell.
-     - Advantages:
-       - Works for huge worlds
-       - Only stores occupied cells
-       - Cheap insertion/removal
-     - Often used in:
-       - sandbox games
-       - procedural worlds
-       - ECS engines
+** Spatial Hashing
+   Instead of a fixed grid array, use a hash map keyed by grid cell.
+   - Advantages:
+     - Works for huge worlds
+     - Only stores occupied cells
+     - Cheap insertion/removal
+   - Often used in:
+     - sandbox games
+     - procedural worlds
+     - ECS engines
 
 * NEXT
   1) [ ] The SPARK should rotate around the player during idle.
