@@ -26,7 +26,7 @@ Todo
 * UI
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
-  2) [ ] Show damage overhead.
+  2) [ ] Show inflicted damage overhead enemy units (white) and also against you (red).
 
 * GAMEPLAY
   1) [ ] Gameplay overhaul. Detonators should now be a finite resource. You
