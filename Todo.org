@@ -11,6 +11,8 @@ Todo
   - Ammo system.
   - Slow the game down.
   - Part of the fun is combining things, like the SABER and HOMING.
+  - Unique items. Firebrand. Icebrand.
+  - Armor items.
 
 * DEV
   - Iteration and feedback-cycle should be as rapid as possible.
@@ -20,9 +22,10 @@ Todo
   - [ ] Add as many tests as you can and run the tests automatically every
     reload. Regression tests are extremely useful.
 
-* HUD
+* UI
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
      and text bigger for readability.
+  2) [ ] Show damage overhead.
 
 * GAMEPLAY
   1) [ ] Gameplay overhaul. Detonators should now be a finite resource. You
@@ -36,6 +39,8 @@ Todo
   6) [ ] Add a wave timer to show the current wave duration.
   7) [ ] If the player runs out of detonator caps, a long cooldown is initiated
      where on ending a cap is restored.
+  8) [ ] Disable shrapnel on death.
+  9) [ ] Scale damage. Pistol 9-13 default.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -122,6 +127,10 @@ Todo
       around the player. The theme color of the lance is GREEN whereas SABER is
       BLUE.
   11) [ ] Add HALBERD melee weapon. The theme color of the halberd is RED.
+      Halberd attacks in a wide area and inflicts a "burn" debuff which deals
+      damage over time. Burn debuffs can stack. The secondary ability of HALBERD
+      immolates the player for 5 seconds, dealing damage to enemies around him
+      over time. The ability has a 17 second cooldown.
   12) [X] Clamp pistol spread arc to 45 degrees.
   13) [ ] Add GLITTER GUN. This fires ballistically similar to the SCATTERGUN,
       but fires special slowing bullets. The bullets have a special detonation
@@ -145,6 +154,9 @@ Todo
       range (with a reasonable limit). DOUBLE TAP should add an additional saber
       strike after a brief delay. BIG BULLETS should increase range.
   19) [X] Remove LANCE burst effect.
+  20) [ ] Add ORB weapon. ORB throws out a slow moving glowing orb which
+      releases BLUE SHRAPNEL around itself in a spiral pattern. BLUE SHRAPNEL
+      slows down enemies it attaches to.
 
 * DETONATORS
 
