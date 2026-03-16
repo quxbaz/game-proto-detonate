@@ -41,6 +41,8 @@ Todo
        - Physics, collisions
        - Effects
        - Updates
+     - [ ] Support quick reload/feedback cycles.
+     - [ ] Scripting support.
      - [ ] Platform: support all OSes, Steam, and Switch.
   6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
      Effects, etc.
