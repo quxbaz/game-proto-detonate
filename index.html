@@ -1159,8 +1159,11 @@ function update(dt) {
     if (b.grenadeShrapnel) {
       const drag = Math.pow(0.3, dt);
       b.vx *= drag; b.vy *= drag;
-      // Remove when nearly stopped (unless queued for detonation)
-      if (!b._detonating && b.vx * b.vx + b.vy * b.vy < 100) { bullets.splice(i, 1); continue; }
+      // Remove when nearly stopped (unless marked for detonation)
+      if (b.vx * b.vx + b.vy * b.vy < 100) {
+        if (b._frozen) { b.vx = 0; b.vy = 0; }
+        else { bullets.splice(i, 1); continue; }
+      }
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
@@ -1543,18 +1546,11 @@ function triggerDetonation() {
   let totalStuckCount = 0;
   for (let e of enemies) totalStuckCount += e.stuck.length;
 
-  // Collect grenade shrapnel for independent detonation
-  let grenadeShrapnelBullets = [];
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    if (bullets[i].grenadeShrapnel) grenadeShrapnelBullets.push(i);
-  }
-
   // AOE indicator at click point
   explosions.push({ x: clickWorldX, y: clickWorldY, r: 0, maxR: 120, t: 0, dur: 0.4, sides: 24, rot: 0, indicator: true });
   sfx('explode', { intensity: 1 });
 
   const stuckBonus = 1;
-
   const initRadius = 120;
 
   // Find first wave: enemies near click point that have stuck bullets or charge
@@ -1564,178 +1560,203 @@ function triggerDetonation() {
     if (e.stuck.length === 0 && (e.charge || 0) === 0) continue;
     if (dist(e, clickPt) < initRadius + e.r) firstWave.push(e);
   }
+  firstWave.sort((a, b) => dist(a, clickPt) - dist(b, clickPt));
 
-  // Collect grenade shrapnel near click point for first wave
-  const firstShrapnel = [];
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i];
-    if (b.grenadeShrapnel && dist(b, clickPt) <= initRadius) {
-      firstShrapnel.push(b);
-      b._detonating = true;
+  // Check if any grenade shrapnel is near click point — trigger its group
+  triggerGrenadeGroupsNear(clickPt, initRadius);
+
+  if (firstWave.length > 0) {
+    processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus);
+  }
+}
+
+// ============ GRENADE GROUP DETONATION SYSTEM ============
+// Shrapnel registry: maps gid -> array of {x, y} positions snapshot at detonation time
+const _detonatingGids = new Set();
+
+function triggerGrenadeGroupsNear(origin, radius) {
+  // Find gids of any grenade shrapnel in range that isn't already detonating
+  const newGids = new Set();
+  for (const b of bullets) {
+    if (!b.grenadeShrapnel) continue;
+    if (_detonatingGids.has(b.gid)) continue;
+    if (dist(b, origin) <= radius) newGids.add(b.gid);
+  }
+  for (const gid of newGids) {
+    _detonatingGids.add(gid);
+    // Mark all shrapnel in this group for detonation — they keep moving normally
+    const group = [];
+    for (const b of bullets) {
+      if (b.grenadeShrapnel && b.gid === gid) {
+        b._frozen = true;
+        group.push(b);
+      }
     }
-  }
-
-  if (firstWave.length > 0 || firstShrapnel.length > 0) {
-    chainDetonate(firstWave, 0, stuckBonus, firstShrapnel);
+    // Sort closest to furthest from origin
+    group.sort((a, b) => dist(a, origin) - dist(b, origin));
+    // Fire independent sequential detonation
+    detonateGrenadeGroup(group, 0, gid);
   }
 }
 
-const DETONATE_INTERVAL = 120; // ms between sequential detonations
+const GRENADE_GROUP_INTERVAL = 30;
 
-function chainDetonate(wave, depth, stuckBonus, shrapnelWave) {
-  // Build a flat queue of all detonations (shrapnel first, then enemies)
-  const queue = [];
-  if (shrapnelWave && shrapnelWave.length > 0) {
-    for (const b of shrapnelWave) queue.push({ shrapnel: b });
+function detonateGrenadeGroup(group, idx, gid) {
+  if (idx >= group.length) {
+    _detonatingGids.delete(gid);
+    return;
   }
-  for (const e of wave) queue.push({ enemy: e });
-  processDetonationQueue(queue, 0, depth, stuckBonus);
+  const b = group[idx];
+  // Use bullet's current position (it's frozen in place)
+  const pt = { x: b.x, y: b.y };
+  const megaMult = player.megablast > 0 ? 2 : 1;
+  const overMult = player.overcharge > 0 ? 1.8 : 1;
+  const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
+  const gsRadius = 70 * megaMult * overMult * blastPerk;
+  const r = 40 * megaMult * overMult;
+
+  // Remove this bullet from bullets array
+  const bi = bullets.indexOf(b);
+  if (bi >= 0) bullets.splice(bi, 1);
+
+  // Explosion effect
+  explosions.push({ x: pt.x, y: pt.y, r: 0, maxR: r, t: 0, dur: 0.3, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
+  spawnParticles(pt.x, pt.y, 6, '#f44', 0.4);
+  spawnParticles(pt.x, pt.y, 4, '#f80', 0.5);
+  sfx('explode', { intensity: 1 });
+  shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
+
+  // Damage enemies
+  for (let e of enemies) {
+    if (dist(pt, e) < gsRadius + e.r) { e.hp -= 1; e.explodedBy = true; }
+  }
+
+  // Chain: check if this explosion reaches shrapnel from other groups
+  triggerGrenadeGroupsNear(pt, gsRadius);
+
+  // Next in group
+  if (idx + 1 < group.length) {
+    setTimeout(() => detonateGrenadeGroup(group, idx + 1, gid), GRENADE_GROUP_INTERVAL);
+  } else {
+    _detonatingGids.delete(gid);
+  }
 }
 
-function processDetonationQueue(queue, idx, depth, stuckBonus) {
+// ============ ENEMY DETONATION QUEUE ============
+const DETONATE_INTERVAL = 120;
+
+function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
   if (idx >= queue.length) return;
   const megaMult = player.megablast > 0 ? 2 : 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
   const chainPerk = 1 + getPerkCount('chainRange') * 0.25;
   const blastRadius = 80 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
-  const gsRadius = 70 * megaMult * overMult * blastPerk * (1 + (stuckBonus - 1) * 0.15);
-  const chainedQueue = [];
+  const chainedEnemies = [];
 
-  const item = queue[idx];
+  const e = queue[idx];
+  e._lastDetonateT = performance.now();
 
-  if (item.shrapnel) {
-    const b = item.shrapnel;
-    const bi = bullets.indexOf(b);
-    if (bi >= 0) {
-      const r = 40 * megaMult * overMult;
-      explosions.push({ x: b.x, y: b.y, r: 0, maxR: r, t: 0, dur: 0.3, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
-      spawnParticles(b.x, b.y, 6, '#f44', 0.4);
-      spawnParticles(b.x, b.y, 4, '#f80', 0.5);
-      sfx('explode', { intensity: 1 });
-      shakeTimer = Math.max(shakeTimer, 0.1); shakeIntensity = Math.max(shakeIntensity, 4);
-      for (let e of enemies) {
-        if (dist(b, e) < gsRadius + e.r) { e.hp -= 1; e.explodedBy = true; }
+  // Stuck bullet detonation
+  if (e.stuck.length > 0) {
+    const count = e.stuck.length;
+    e.hp -= count;
+    e.explodedBy = true;
+    const baseArea = 140 * 140 * Math.PI;
+    const area = Math.min(baseArea + count * 8000, 800 * 800 * Math.PI) * megaMult * overMult;
+    const r = Math.sqrt(area / Math.PI);
+    explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
+    shakeTimer = 0.2 + count * 0.05 * megaMult;
+    shakeIntensity = (4 + count * 2) * megaMult;
+    spawnParticles(e.x, e.y, (8 + count * 4) * megaMult, '#ff0', 0.5);
+    spawnParticles(e.x, e.y, (5 + count * 2) * megaMult, '#f80', 0.7);
+    if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
+    sfx('explode', { intensity: count * megaMult });
+    if (depth > 0) sfx('chain', { depth });
+    // Area damage to nearby enemies
+    for (let other of enemies) {
+      if (other === e) continue;
+      if (dist(other, e) < r) {
+        other.hp -= count;
+        other.explodedBy = true;
       }
-      // Collect nearby grenade shrapnel for chaining
-      for (let bi2 = bullets.length - 1; bi2 >= 0; bi2--) {
-        const b2 = bullets[bi2];
-        if (!b2.grenadeShrapnel || b2._detonating) continue;
-        if (dist(b2, b) <= gsRadius) {
-          b2._detonating = true;
-          chainedQueue.push({ shrapnel: b2 });
-        }
-      }
-      bullets.splice(bi, 1);
     }
+    e.stuckBeforeDetonation = count;
+    e.stuck = [];
+    // Chain to nearby stuck/charged enemies
+    const chainRadius = (blastRadius + r) * chainPerk;
+    for (let other of enemies) {
+      if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
+      if (queue.includes(other) || chainedEnemies.includes(other)) continue;
+      if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
+      if (dist(other, e) < chainRadius) {
+        chainedEnemies.push(other);
+      }
+    }
+    // Trigger grenade groups in blast range
+    triggerGrenadeGroupsNear(e, chainRadius);
   }
 
-  if (item.enemy) {
-    const e = item.enemy;
-    e._lastDetonateT = performance.now();
-
-    // Stuck bullet detonation
-    if (e.stuck.length > 0) {
-      const count = e.stuck.length;
-      e.hp -= count;
-      e.explodedBy = true;
-      const baseArea = 140 * 140 * Math.PI;
-      const area = Math.min(baseArea + count * 8000, 800 * 800 * Math.PI) * megaMult * overMult;
-      const r = Math.sqrt(area / Math.PI);
-      explosions.push({ x: e.x, y: e.y, r: 0, maxR: r, t: 0, dur: 0.4 + (megaMult - 1) * 0.2, sides: 5 + Math.floor(Math.random() * 4), rot: Math.random() * Math.PI * 2 });
-      shakeTimer = 0.2 + count * 0.05 * megaMult;
-      shakeIntensity = (4 + count * 2) * megaMult;
-      spawnParticles(e.x, e.y, (8 + count * 4) * megaMult, '#ff0', 0.5);
-      spawnParticles(e.x, e.y, (5 + count * 2) * megaMult, '#f80', 0.7);
-      if (megaMult > 1) spawnParticles(e.x, e.y, 12, '#fff', 0.6);
-      sfx('explode', { intensity: count * megaMult });
-      if (depth > 0) sfx('chain', { depth });
-      // Area damage to nearby enemies
-      for (let other of enemies) {
-        if (other === e) continue;
-        if (dist(other, e) < r) {
-          other.hp -= count;
-          other.explodedBy = true;
-        }
-      }
-      e.stuckBeforeDetonation = count;
-      e.stuck = [];
-      // Chain to nearby stuck/charged enemies
-      for (let other of enemies) {
-        if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
-        if (queue.some(q => q.enemy === other) || chainedQueue.some(q => q.enemy === other)) continue;
-        if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
-        if (dist(other, e) < (blastRadius + r) * chainPerk) {
-          chainedQueue.push({ enemy: other });
-        }
-      }
-      // Collect nearby grenade shrapnel
-      for (let bi = bullets.length - 1; bi >= 0; bi--) {
-        const b = bullets[bi];
-        if (!b.grenadeShrapnel || b._detonating) continue;
-        if (dist(b, e) <= (blastRadius + r) * chainPerk) {
-          b._detonating = true;
-          chainedQueue.push({ shrapnel: b });
-        }
-      }
-    }
-
-    // Charge detonation
-    if (e.charge > 0) {
-      const chargeRadius = 80 + e.charge * 10;
-      const chargeDmg = e.charge * 3;
-      const cr = 30 + e.charge * 8;
-      explosions.push({ x: e.x, y: e.y, r: 0, maxR: cr, t: 0, dur: 0.35, sides: 6, rot: Math.random() * Math.PI * 2 });
-      spawnParticles(e.x, e.y, 8 + e.charge * 3, '#ff0', 0.5);
-      spawnParticles(e.x, e.y, 5 + e.charge * 2, '#0ff', 0.4);
-      sfx('explode', { intensity: e.charge });
-      shakeTimer = Math.max(shakeTimer, 0.15); shakeIntensity = Math.max(shakeIntensity, 4 + e.charge);
-      spawnFloatingText(e.x, e.y + 30, `CHARGE x${e.charge}`, '#ff0', 16);
-      // Detonate nearby shrapnel bullets (non-grenade)
-      for (let bi = bullets.length - 1; bi >= 0; bi--) {
-        const b = bullets[bi];
-        if (!b.shrapnel || b.grenadeShrapnel) continue;
-        if (dist(b, e) < chargeRadius) {
-          for (let other of enemies) {
-            if (other === e) continue;
-            if (dist(b, other) < 40 + e.charge * 5) {
-              other.hp -= Math.ceil(chargeDmg * 0.5);
-              other.explodedBy = true;
-            }
+  // Charge detonation
+  if (e.charge > 0) {
+    const chargeRadius = 80 + e.charge * 10;
+    const chargeDmg = e.charge * 3;
+    const cr = 30 + e.charge * 8;
+    explosions.push({ x: e.x, y: e.y, r: 0, maxR: cr, t: 0, dur: 0.35, sides: 6, rot: Math.random() * Math.PI * 2 });
+    spawnParticles(e.x, e.y, 8 + e.charge * 3, '#ff0', 0.5);
+    spawnParticles(e.x, e.y, 5 + e.charge * 2, '#0ff', 0.4);
+    sfx('explode', { intensity: e.charge });
+    shakeTimer = Math.max(shakeTimer, 0.15); shakeIntensity = Math.max(shakeIntensity, 4 + e.charge);
+    spawnFloatingText(e.x, e.y + 30, `CHARGE x${e.charge}`, '#ff0', 16);
+    // Detonate nearby shrapnel bullets (non-grenade)
+    for (let bi = bullets.length - 1; bi >= 0; bi--) {
+      const b = bullets[bi];
+      if (!b.shrapnel || b.grenadeShrapnel) continue;
+      if (dist(b, e) < chargeRadius) {
+        for (let other of enemies) {
+          if (other === e) continue;
+          if (dist(b, other) < 40 + e.charge * 5) {
+            other.hp -= Math.ceil(chargeDmg * 0.5);
+            other.explodedBy = true;
           }
-          spawnParticles(b.x, b.y, 4, '#f80', 0.3);
-          bullets.splice(bi, 1);
         }
+        spawnParticles(b.x, b.y, 4, '#f80', 0.3);
+        bullets.splice(bi, 1);
       }
-      // Damage nearby enemies
-      for (let other of enemies) {
-        if (other === e || other.hp <= 0) continue;
-        if (dist(other, e) < chargeRadius + other.r) {
-          other.hp -= chargeDmg;
-          other.explodedBy = true;
-        }
-      }
-      e.hp -= chargeDmg;
-      e.explodedBy = true;
-      // Chain to nearby charged/stuck enemies
-      for (let other of enemies) {
-        if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
-        if (queue.some(q => q.enemy === other) || chainedQueue.some(q => q.enemy === other)) continue;
-        if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
-        if (dist(other, e) < chargeRadius + other.r) {
-          chainedQueue.push({ enemy: other });
-        }
-      }
-      e.charge = 0;
     }
+    // Damage nearby enemies
+    for (let other of enemies) {
+      if (other === e || other.hp <= 0) continue;
+      if (dist(other, e) < chargeRadius + other.r) {
+        other.hp -= chargeDmg;
+        other.explodedBy = true;
+      }
+    }
+    e.hp -= chargeDmg;
+    e.explodedBy = true;
+    // Chain to nearby charged/stuck enemies
+    for (let other of enemies) {
+      if (performance.now() - (other._lastDetonateT || 0) < 300) continue;
+      if (queue.includes(other) || chainedEnemies.includes(other)) continue;
+      if (other.stuck.length === 0 && (other.charge || 0) === 0) continue;
+      if (dist(other, e) < chargeRadius + other.r) {
+        chainedEnemies.push(other);
+      }
+    }
+    // Trigger grenade groups in blast range
+    triggerGrenadeGroupsNear(e, chargeRadius);
+    e.charge = 0;
   }
 
-  // Append chained items to the queue
-  for (const c of chainedQueue) queue.push(c);
+  // Append chained enemies sorted by distance
+  if (chainedEnemies.length > 0) {
+    chainedEnemies.sort((a, b) => dist(a, e) - dist(b, e));
+    for (const c of chainedEnemies) queue.push(c);
+  }
 
-  // Process next item sequentially
+  // Next enemy
   if (idx + 1 < queue.length) {
-    setTimeout(() => processDetonationQueue(queue, idx + 1, depth + 1, stuckBonus), DETONATE_INTERVAL);
+    setTimeout(() => processEnemyDetonationQueue(queue, idx + 1, depth + 1, stuckBonus), DETONATE_INTERVAL);
   }
 }
 
