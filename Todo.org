@@ -1,5 +1,9 @@
 Todo
 
+* NEXT
+  1) [ ] The SPARK should rotate around the player during idle.
+  2) [ ] Have the SPARK return to the player when done.
+
 * IDEAS
   - Deck building elements.
   - Skill points. Skills cost varying amounts of points.
@@ -16,12 +20,16 @@ Todo
   - Every weapon should be awesome and incredibly satisfying.
 
 * DEV
-  - Iteration and feedback-cycle should be as rapid as possible.
-  - [ ] Add as much logging as possible (with data). You need a way detect bugs/crashes
-    during iterations.
-  - [ ] Use event/data-payload system. This should help with finding bugs/crashes.
-  - [ ] Add as many tests as you can and run the tests automatically every
-    reload. Regression tests are extremely useful.
+  1) Iteration and feedback-cycle should be as rapid as possible.
+  2) [ ] Add as much logging as possible (with data). You need a way detect bugs/crashes
+     during iterations.
+  3) [ ] Use event/data-payload system. This should help with finding bugs/crashes.
+  4) [ ] Add as many tests as you can and run the tests automatically every
+     reload. Regression tests are extremely useful.
+
+* THEME
+  - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
+    sidekick. Give it personality animations.
 
 * UI
   1) [X] Move weapon and powerup bar to near bottom of screen and make the bars
