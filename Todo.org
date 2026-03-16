@@ -27,8 +27,6 @@ Todo
   4) [ ] Add as many tests as you can and run the tests automatically every
      reload. Regression tests are extremely useful.
   5) [ ] Develop universal game engine with high performance characteristics:
-     can handle many thousands of moving units, collisions, and effects per
-     update without slowdown.
      - [ ] Use ECS system.
      - [ ] Highly modular. Even though AI-developed, make it easy to read,
        understand, and modify for humans.
@@ -38,6 +36,12 @@ Todo
      - [ ] Data-fy. Conform things to data structures whenever possible.
      - [ ] High level of abstraction in to support ability to switch out
        implementations.
+     - [ ] Performance minimums (in thousands, simultaneously):
+       - Units
+       - Physics, collisions
+       - Effects
+       - Updates
+     - [ ] Platform: support all OSes, Steam, and Switch.
   6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
      Effects, etc.
 
