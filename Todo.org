@@ -1,5 +1,8 @@
 Todo
 
+* NOW
+  - [ ] AoS vs SoA test. Rendering, collision, movement.
+
 * NEXT
   1) [ ] The SPARK should rotate around the player during idle.
   2) [ ] Have the SPARK return to the player when done.
@@ -45,8 +48,19 @@ Todo
      - [ ] Support quick reload/feedback cycles.
      - [ ] Scripting support.
      - [ ] Platform: support all OSes, Steam, and Switch.
+     - [ ] Collision optimization, partition method.
+     - [ ] AoS [?]
   6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
      Effects, etc.
+  7) AI response:
+     Custom C++ engine (SDL / OpenGL / Vulkan)
+     This is what most extreme-scale 2D games/sims use.
+     Typical stack:
+     - SDL2/SDL3 → window/input
+     - OpenGL / Vulkan / WebGPU
+     - Box2D / Chipmunk2D / custom physics
+     - ECS (EnTT, Flecs)
+     With data-oriented design (SoA), devs have reported 100k+ objects easily.
 
 * THEME
   - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
@@ -205,6 +219,9 @@ Todo
       releases BLUE SHRAPNEL around itself in a spiral pattern. BLUE SHRAPNEL
       slows down enemies it attaches to.
   21) [ ] Using the LANCE secondary ability removes the weapon.
+  22) [ ] Add TURRET weapon. The TURRET is a very fast and powerful weapon, like
+      a super machine gun. Its main drawback is that the player is completely
+      stationary while equipped with this weapon.
 
 * DETONATORS
 
