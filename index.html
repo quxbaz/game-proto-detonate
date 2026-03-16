@@ -940,7 +940,7 @@ function update(dt) {
   else if ((mouse.down || mouse.clicked) && shootCooldown <= 0 && player.saber > 0) {
     const baseRange = 160;
     const saberRange = baseRange + getPerkCount('bulletSize') * 30; // Big Bullets increases range
-    const baseArc = Math.PI / 6; // 30 degree swing
+    const baseArc = Math.PI / 3; // 60 degree swing
     const saberArc = Math.min(baseArc + (player.spread > 0 ? Math.PI / 6 : 0), Math.PI / 2); // Spread widens arc, cap 90°
     const saberDmg = 8;
     let a = player.angle;
