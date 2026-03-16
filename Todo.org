@@ -194,6 +194,7 @@ Todo
      incrementally.
   7) [ ] Add MAGNETIC skill. This skill attract items to you. More points
      increase the attraction radius, diminishing exponentially.
+  8) [ ] Add THORNS skill. Enemies take a lot of damage when they attack you.
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
