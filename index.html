@@ -216,6 +216,7 @@ function cleanupMeshes() {
 // ============ GAME STATE ============
 let player, bullets, enemies, explosions, particles, powerups, grenades;
 let floatingTexts, waveAnnounce;
+let chainTrails = [];
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
 let xp, playerLevel, xpToNext, perkChoices, perksPicked, levelUpTimer, pendingPerks;
@@ -526,6 +527,7 @@ function init() {
   particles = [];
   powerups = [];
   floatingTexts = [];
+  chainTrails = [];
   waveAnnounce = null;
   score = 0;
   wave = 1;
@@ -1518,6 +1520,17 @@ function update(dt) {
     if (ft.t >= ft.dur) floatingTexts.splice(i, 1);
   }
 
+  // Chain trails
+  for (let i = chainTrails.length - 1; i >= 0; i--) {
+    const tr = chainTrails[i];
+    if (tr.spark) tr.spark.t += dt;
+    // Remove trail when all segments have faded (800ms after last point)
+    if (tr.fading && tr.points.length > 0) {
+      const lastBirth = tr.points[tr.points.length - 1].birth;
+      if (performance.now() - lastBirth > 1800) chainTrails.splice(i, 1);
+    }
+  }
+
   // Wave announcement
   if (waveAnnounce) {
     waveAnnounce.t += dt;
@@ -1574,7 +1587,14 @@ function triggerDetonation() {
   triggerGrenadeGroupsNear(clickPt, initRadius);
 
   if (firstWave.length > 0) {
-    processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus);
+    const trail = { points: [{ x: player.x, y: player.y, birth: performance.now() }], spark: null, fadeT: 0, fading: false };
+    chainTrails.push(trail);
+    // Spark travels from player to first enemy
+    const target = firstWave[0];
+    const d = dist(player, target);
+    const travelTime = Math.min(DETONATE_INTERVAL / 1000, d / 800);
+    trail.spark = { sx: player.x, sy: player.y, tx: target.x, ty: target.y, t: 0, dur: travelTime };
+    setTimeout(() => processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus, trail), DETONATE_INTERVAL);
   }
 }
 
@@ -1653,8 +1673,11 @@ function detonateGrenadeGroup(group, idx, gid) {
 // ============ ENEMY DETONATION QUEUE ============
 const DETONATE_INTERVAL = 120;
 
-function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
-  if (idx >= queue.length) return;
+function processEnemyDetonationQueue(queue, idx, depth, stuckBonus, trail) {
+  if (idx >= queue.length) {
+    if (trail) { trail.spark = null; trail.fading = true; }
+    return;
+  }
   const megaMult = player.megablast > 0 ? 2 : 1;
   const overMult = player.overcharge > 0 ? 1.8 : 1;
   const blastPerk = 1 + getPerkCount('blastRadius') * 0.2;
@@ -1664,6 +1687,10 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
 
   const e = queue[idx];
   e._lastDetonateT = performance.now();
+  if (trail) {
+    trail.points.push({ x: e.x, y: e.y, birth: performance.now() });
+    trail.spark = null; // arrived — clear spark until next leg
+  }
 
   // Stuck bullet detonation
   if (e.stuck.length > 0) {
@@ -1768,7 +1795,16 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus) {
 
   // Next enemy
   if (idx + 1 < queue.length) {
-    setTimeout(() => processEnemyDetonationQueue(queue, idx + 1, depth + 1, stuckBonus), DETONATE_INTERVAL);
+    if (trail) {
+      const next = queue[idx + 1];
+      const d = dist(e, next);
+      const travelTime = Math.min(DETONATE_INTERVAL / 1000, d / 800);
+      trail.spark = { sx: e.x, sy: e.y, tx: next.x, ty: next.y, t: 0, dur: travelTime };
+    }
+    setTimeout(() => processEnemyDetonationQueue(queue, idx + 1, depth + 1, stuckBonus, trail), DETONATE_INTERVAL);
+  } else if (trail) {
+    trail.spark = null;
+    trail.fading = true;
   }
 }
 
@@ -2486,6 +2522,61 @@ function drawHUD(now) {
     ctx.fillText(`⚡${e.charge}`, sx, sy);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
+  }
+
+  // Chain detonation trails
+  for (const tr of chainTrails) {
+    const now2 = performance.now();
+    const segFadeDur = 1800; // each segment fades over 1.8s
+    // Draw lines between points, each segment fading independently
+    if (tr.points.length > 1) {
+      ctx.lineWidth = 3;
+      for (let j = 1; j < tr.points.length; j++) {
+        const p0 = tr.points[j - 1];
+        const p1 = tr.points[j];
+        const age = now2 - p1.birth;
+        const segAlpha = Math.max(0, 1 - age / segFadeDur) * 0.35;
+        if (segAlpha <= 0) continue;
+        ctx.strokeStyle = `rgba(255, 80, 60, ${segAlpha})`;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 + (p0.x - player.x), H / 2 - (p0.y - player.y));
+        ctx.lineTo(W / 2 + (p1.x - player.x), H / 2 - (p1.y - player.y));
+        ctx.stroke();
+      }
+    }
+    // Draw spark
+    if (tr.spark && tr.spark.dur > 0) {
+      const s = tr.spark;
+      const frac = Math.min(s.t / s.dur, 1);
+      const sx = s.sx + (s.tx - s.sx) * frac;
+      const sy = s.sy + (s.ty - s.sy) * frac;
+      const screenX = W / 2 + (sx - player.x);
+      const screenY = H / 2 - (sy - player.y);
+      // Trailing line from last point to spark
+      if (tr.points.length > 0) {
+        const last = tr.points[tr.points.length - 1];
+        ctx.strokeStyle = 'rgba(255, 80, 60, 0.35)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 + (last.x - player.x), H / 2 - (last.y - player.y));
+        ctx.lineTo(screenX, screenY);
+        ctx.stroke();
+      }
+      // Spark glow
+      const grd = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 12);
+      grd.addColorStop(0, 'rgba(255, 200, 100, 0.9)');
+      grd.addColorStop(0.4, 'rgba(255, 80, 40, 0.6)');
+      grd.addColorStop(1, 'rgba(255, 40, 20, 0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright center
+      ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // Floating texts (convert world to screen)
