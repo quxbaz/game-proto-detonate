@@ -13,6 +13,7 @@ Todo
   - Part of the fun is combining things, like the SABER and HOMING.
   - Unique items. Firebrand. Icebrand.
   - Armor items.
+  - Every weapon should be awesome and incredibly satisfying.
 
 * DEV
   - Iteration and feedback-cycle should be as rapid as possible.
@@ -49,6 +50,10 @@ Todo
      should "feel" right, like there's some progression. Some level of
      predictability should be inherent, otherwise it just feels like a nonstop,
      random, but predictable mess.
+
+* TWEAKS
+  1) [ ] Make SABER repel distance greater and increase stun time.
+  2) [ ] Make GRENADE animation start out fast then slow down as it reaches its target.
 
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
