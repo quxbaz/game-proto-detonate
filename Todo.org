@@ -42,7 +42,6 @@ Todo
      where on ending a cap is restored.
   8) [ ] Disable shrapnel on death.
   9) [ ] Scale damage. Pistol 9-13 default.
-  10) [ ] Detonation chain reaction delay should get shorter with each successive detonation.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
