@@ -217,6 +217,23 @@ function cleanupMeshes() {
 let player, bullets, enemies, explosions, particles, powerups, grenades;
 let floatingTexts, waveAnnounce;
 let chainTrails = [];
+// ============ SPARK SIDEKICK ============
+const spark = {
+  x: 0, y: 0, // world position
+  state: 'idle', // idle, detonating, returning
+  orbitAngle: 0, // current orbit angle around player
+  orbitDist: 28, // orbit radius
+  orbitSpeed: 2.5, // radians/sec
+  // Emote state
+  emote: null, // { type, t, dur }
+  // Detonation travel
+  trail: null, // current chain trail reference
+  travelSrc: null, travelDst: null, travelT: 0, travelDur: 0,
+  // Return travel
+  returnT: 0, returnDur: 0, returnSx: 0, returnSy: 0,
+  // Visual
+  pulseT: 0, size: 7,
+};
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
 let xp, playerLevel, xpToNext, perkChoices, perksPicked, levelUpTimer, pendingPerks;
@@ -323,6 +340,7 @@ function gainXp(amount) {
     xpToNext = xpForLevel(playerLevel);
     // Apply max HP perk immediately if chosen before
     sfx('powerup');
+    sparkEmote('excited', 1.2);
     offerPerks();
   }
 }
@@ -528,6 +546,8 @@ function init() {
   powerups = [];
   floatingTexts = [];
   chainTrails = [];
+  spark.x = 0; spark.y = 0; spark.state = 'idle'; spark.orbitAngle = 0;
+  spark.emote = null; spark.trail = null;
   waveAnnounce = null;
   score = 0;
   wave = 1;
@@ -1432,6 +1452,7 @@ function update(dt) {
             spawnParticles(player.x, player.y, 8, '#ff8', 0.3);
           } else if (!(getPerkCount('armor') > 0 && Math.random() < getPerkCount('armor') * 0.2)) {
             player.hp--;
+            sparkEmote('hurt', 0.8);
             player.invuln = 1.5;
             shakeTimer = 0.2; shakeIntensity = 4;
             spawnParticles(player.x, player.y, 8, '#ff0', 0.4);
@@ -1469,6 +1490,7 @@ function update(dt) {
         player.invuln = 0.5;
       } else {
         player.hp--;
+        sparkEmote('hurt', 0.8);
         spawnFloatingText(player.x, player.y - player.r - 10, '1', '#f44', 19);
         player.invuln = 1.5;
         shakeTimer = 0.3; shakeIntensity = 6;
@@ -1570,6 +1592,7 @@ function update(dt) {
       }
       spawnParticles(p.x, p.y, 8, p.color, 0.4);
       sfx('powerup');
+      sparkEmote('excited', 0.8);
       const lbl = p.isWeapon ? WEAPON_DROP_DEFS[p.type].label : POWERUP_DEFS[p.type].label;
       spawnFloatingText(p.x, p.y + 15, lbl, p.color, 14);
       powerups.splice(i, 1);
@@ -1587,10 +1610,54 @@ function update(dt) {
   for (let i = chainTrails.length - 1; i >= 0; i--) {
     const tr = chainTrails[i];
     if (tr.spark) tr.spark.t += dt;
-    // Remove trail when all segments have faded (800ms after last point)
     if (tr.fading && tr.points.length > 0) {
       const lastBirth = tr.points[tr.points.length - 1].birth;
-      if (performance.now() - lastBirth > 3000) chainTrails.splice(i, 1);
+      if (performance.now() - lastBirth > 2000) chainTrails.splice(i, 1);
+    }
+  }
+
+  // Spark sidekick update
+  spark.pulseT += dt;
+  if (spark.emote) {
+    spark.emote.t += dt;
+    if (spark.emote.t >= spark.emote.dur) spark.emote = null;
+  }
+  if (spark.state === 'idle') {
+    spark.orbitAngle += spark.orbitSpeed * dt;
+    // Emote bobbing affects orbit dist
+    let oDist = spark.orbitDist;
+    if (spark.emote) {
+      const ef = spark.emote.t / spark.emote.dur;
+      if (spark.emote.type === 'excited') {
+        oDist += Math.sin(ef * Math.PI * 8) * 10;
+        spark.orbitAngle += 6 * dt; // spin faster when excited
+      } else if (spark.emote.type === 'hurt') {
+        oDist += Math.sin(ef * Math.PI * 12) * 8;
+      }
+    }
+    spark.x = player.x + Math.cos(spark.orbitAngle) * oDist;
+    spark.y = player.y + Math.sin(spark.orbitAngle) * oDist;
+  } else if (spark.state === 'detonating') {
+    // Position driven by trail.spark in render
+    if (spark.trail && spark.trail.spark) {
+      const s = spark.trail.spark;
+      const frac = Math.min(s.t / s.dur, 1);
+      spark.x = s.sx + (s.tx - s.sx) * frac;
+      spark.y = s.sy + (s.ty - s.sy) * frac;
+    }
+  } else if (spark.state === 'returning') {
+    spark.returnT += dt;
+    spark.orbitAngle += spark.orbitSpeed * dt;
+    const frac = Math.min(spark.returnT / spark.returnDur, 1);
+    // Ease out
+    const ef = 1 - (1 - frac) * (1 - frac);
+    // Target the current orbit position, not player center
+    const orbitX = player.x + Math.cos(spark.orbitAngle) * spark.orbitDist;
+    const orbitY = player.y + Math.sin(spark.orbitAngle) * spark.orbitDist;
+    spark.x = spark.returnSx + (orbitX - spark.returnSx) * ef;
+    spark.y = spark.returnSy + (orbitY - spark.returnSy) * ef;
+    if (frac >= 1) {
+      spark.state = 'idle';
     }
   }
 
@@ -1618,6 +1685,22 @@ function update(dt) {
 
   if (shakeTimer > 0) shakeTimer -= dt;
   mouse.clicked = false;
+}
+
+// ============ SPARK HELPERS ============
+function sparkReturn() {
+  if (spark.state !== 'detonating') return;
+  spark.state = 'returning';
+  spark.returnSx = spark.x;
+  spark.returnSy = spark.y;
+  spark.returnT = 0;
+  const d = dist(spark, player);
+  spark.returnDur = Math.max(0.4, d / 600);
+  spark.trail = null;
+}
+
+function sparkEmote(type, dur) {
+  spark.emote = { type, t: 0, dur: dur || 1 };
 }
 
 // ============ DETONATION ============
@@ -1650,15 +1733,34 @@ function triggerDetonation() {
   triggerGrenadeGroupsNear(clickPt, initRadius);
 
   if (firstWave.length > 0) {
-    const trail = { points: [{ x: player.x, y: player.y, birth: performance.now() }], spark: null, fadeT: 0, fading: false };
+    const trail = { points: [{ x: spark.x, y: spark.y, birth: performance.now() }], spark: null, fadeT: 0, fading: false };
     chainTrails.push(trail);
-    // Spark travels from player to first enemy
+    // Spark sidekick flies out from current position
+    spark.state = 'detonating';
+    spark.trail = trail;
     const target = firstWave[0];
-    const d = dist(player, target);
+    const d = dist(spark, target);
     const travelTime = d / CHAIN_SPARK_SPEED;
-    trail.spark = { sx: player.x, sy: player.y, tx: target.x, ty: target.y, t: 0, dur: travelTime };
+    trail.spark = { sx: spark.x, sy: spark.y, tx: target.x, ty: target.y, t: 0, dur: travelTime };
     const delay = travelTime * 1000 + CHAIN_REST_TIME;
     setTimeout(() => processEnemyDetonationQueue(firstWave, 0, 0, stuckBonus, trail), delay);
+  } else {
+    // Nothing to detonate — send spark to click point and back
+    const trail = { points: [{ x: spark.x, y: spark.y, birth: performance.now() }], spark: null, fadeT: 0, fading: false };
+    chainTrails.push(trail);
+    spark.state = 'detonating';
+    spark.trail = trail;
+    const d = dist(spark, clickPt);
+    const travelTime = d / CHAIN_SPARK_SPEED;
+    trail.spark = { sx: spark.x, sy: spark.y, tx: clickWorldX, ty: clickWorldY, t: 0, dur: travelTime };
+    setTimeout(() => {
+      trail.points.push({ x: clickWorldX, y: clickWorldY, birth: performance.now() });
+      trail.spark = null;
+      trail.fading = true;
+      spark.x = clickWorldX;
+      spark.y = clickWorldY;
+      sparkReturn();
+    }, travelTime * 1000 + CHAIN_REST_TIME);
   }
 }
 
@@ -1741,6 +1843,7 @@ const CHAIN_REST_TIME = 100; // ms pause after detonation before spark moves on
 function processEnemyDetonationQueue(queue, idx, depth, stuckBonus, trail) {
   if (idx >= queue.length) {
     if (trail) { trail.spark = null; trail.fading = true; }
+    sparkReturn();
     return;
   }
   const megaMult = player.megablast > 0 ? 2 : 1;
@@ -1874,6 +1977,7 @@ function processEnemyDetonationQueue(queue, idx, depth, stuckBonus, trail) {
   } else if (trail) {
     trail.spark = null;
     trail.fading = true;
+    sparkReturn();
   }
 }
 
@@ -2596,56 +2700,101 @@ function drawHUD(now) {
   // Chain detonation trails
   for (const tr of chainTrails) {
     const now2 = performance.now();
-    const segFadeDur = 3000; // each segment fades over 3s
+    const segFadeDur = 2000; // each segment fades over 2s
     // Draw lines between points, each segment fading independently
     if (tr.points.length > 1) {
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 8;
       for (let j = 1; j < tr.points.length; j++) {
         const p0 = tr.points[j - 1];
         const p1 = tr.points[j];
         const age = now2 - p1.birth;
-        const segAlpha = Math.max(0, 1 - age / segFadeDur) * 0.35;
+        const segAlpha = Math.max(0, 1 - age / segFadeDur) * 0.7;
         if (segAlpha <= 0) continue;
-        ctx.strokeStyle = `rgba(255, 80, 60, ${segAlpha})`;
+        ctx.strokeStyle = `rgba(255, 20, 20, ${segAlpha})`;
         ctx.beginPath();
         ctx.moveTo(W / 2 + (p0.x - player.x), H / 2 - (p0.y - player.y));
         ctx.lineTo(W / 2 + (p1.x - player.x), H / 2 - (p1.y - player.y));
         ctx.stroke();
       }
     }
-    // Draw spark
-    if (tr.spark && tr.spark.dur > 0) {
-      const s = tr.spark;
-      const frac = Math.min(s.t / s.dur, 1);
-      const sx = s.sx + (s.tx - s.sx) * frac;
-      const sy = s.sy + (s.ty - s.sy) * frac;
-      const screenX = W / 2 + (sx - player.x);
-      const screenY = H / 2 - (sy - player.y);
-      // Trailing line from last point to spark
-      if (tr.points.length > 0) {
-        const last = tr.points[tr.points.length - 1];
-        ctx.strokeStyle = 'rgba(255, 80, 60, 0.35)';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(W / 2 + (last.x - player.x), H / 2 - (last.y - player.y));
-        ctx.lineTo(screenX, screenY);
-        ctx.stroke();
-      }
-      // Spark glow
-      const grd = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 12);
-      grd.addColorStop(0, 'rgba(255, 200, 100, 0.9)');
-      grd.addColorStop(0.4, 'rgba(255, 80, 40, 0.6)');
-      grd.addColorStop(1, 'rgba(255, 40, 20, 0)');
-      ctx.fillStyle = grd;
+    // Trailing line from last point to spark sidekick (if this is the active trail)
+    if (spark.state === 'detonating' && spark.trail === tr && tr.points.length > 0) {
+      const last = tr.points[tr.points.length - 1];
+      const screenX = W / 2 + (spark.x - player.x);
+      const screenY = H / 2 - (spark.y - player.y);
+      ctx.strokeStyle = 'rgba(255, 20, 20, 0.7)';
+      ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
-      ctx.fill();
-      // Bright center
-      ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(W / 2 + (last.x - player.x), H / 2 - (last.y - player.y));
+      ctx.lineTo(screenX, screenY);
+      ctx.stroke();
     }
+  }
+
+  // Spark return trail
+  if (spark.state === 'returning') {
+    const sx1 = W / 2 + (spark.returnSx - player.x);
+    const sy1 = H / 2 - (spark.returnSy - player.y);
+    const sx2 = W / 2 + (spark.x - player.x);
+    const sy2 = H / 2 - (spark.y - player.y);
+    const retFrac = Math.min(spark.returnT / spark.returnDur, 1);
+    const retAlpha = (1 - retFrac) * 0.7;
+    ctx.strokeStyle = `rgba(255, 20, 20, ${retAlpha})`;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(sx1, sy1);
+    ctx.lineTo(sx2, sy2);
+    ctx.stroke();
+  }
+
+  // Spark sidekick
+  if (!gameOver && !startScreen) {
+    const sparkSX = W / 2 + (spark.x - player.x);
+    const sparkSY = H / 2 - (spark.y - player.y);
+    const pulse = 1 + 0.2 * Math.sin(spark.pulseT * 4);
+    let sparkSize = spark.size * pulse;
+    let sparkR = 1, sparkG = 0.15, sparkB = 0.1; // red
+
+    // Emote visuals
+    if (spark.emote) {
+      const ef = spark.emote.t / spark.emote.dur;
+      if (spark.emote.type === 'excited') {
+        sparkSize *= 1 + 0.4 * Math.sin(ef * Math.PI * 8);
+        sparkR = 1; sparkG = 0.4 + 0.4 * Math.sin(ef * Math.PI * 6); sparkB = 0.1;
+      } else if (spark.emote.type === 'hurt') {
+        sparkSize *= 1 + 0.3 * Math.sin(ef * Math.PI * 12);
+        sparkR = 1; sparkG = 0.1 + 0.2 * Math.sin(ef * Math.PI * 10); sparkB = 0.3;
+      }
+    }
+
+    // Detonating: brighter, fiercer
+    if (spark.state === 'detonating') {
+      sparkR = 1; sparkG = 0.1; sparkB = 0.05;
+      sparkSize *= 1.3;
+    }
+
+    // Outer glow
+    const glowR = sparkSize * 3;
+    const grd = ctx.createRadialGradient(sparkSX, sparkSY, 0, sparkSX, sparkSY, glowR);
+    grd.addColorStop(0, `rgba(${Math.floor(sparkR*255)}, ${Math.floor(sparkG*255)}, ${Math.floor(sparkB*255)}, 0.8)`);
+    grd.addColorStop(0.3, `rgba(${Math.floor(sparkR*255)}, ${Math.floor(sparkG*200)}, ${Math.floor(sparkB*100)}, 0.4)`);
+    grd.addColorStop(1, 'rgba(255, 20, 10, 0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(sparkSX, sparkSY, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core
+    ctx.fillStyle = 'rgba(255, 200, 200, 0.95)';
+    ctx.beginPath();
+    ctx.arc(sparkSX, sparkSY, sparkSize * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner bright
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(sparkSX, sparkSY, sparkSize * 0.25, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // Floating texts (convert world to screen)
