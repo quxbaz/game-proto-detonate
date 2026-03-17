@@ -5,6 +5,11 @@ Todo
   2) [ ] Spatial Partitioning (Uniform Grids) vs. Spatial Hashing.
   3) [ ] Enable detonation chain limit. Add powerups and skills.
 
+* TWEAKS
+  1) [X] Make SABER repel distance greater and increase stun time.
+  2) [X] Improve GRENADE lob animation.
+  3) [ ] Decrease SPARK line width during detonation by 1px.
+
 * RESEARCH
 ** Spatial Hashing
    Instead of a fixed grid array, use a hash map keyed by grid cell.
@@ -20,6 +25,7 @@ Todo
 * NEXT
   1) [ ] The SPARK should rotate around the player during idle.
   2) [ ] Have the SPARK return to the player when done.
+  3) [ ] TODO#17 :: Spawns should be created outside the arena.
 
 * IDEAS
   - Deck building elements.
@@ -36,6 +42,9 @@ Todo
   - Armor items.
   - Every weapon should be awesome and incredibly satisfying.
   - Destroy a durable door to gain access to the next room.
+  - Cards are categorized by type: weapon, powerup, armor, spark-related, land, etc.
+  - Progression involves collecting powerful enough cards to allow you to
+    progress onto the next stage/area/levle.
 
 * DEV
   1) Iteration and feedback-cycle should be as rapid as possible.
@@ -113,6 +122,10 @@ Todo
       target. Or this could be another type of detonator weapon.
   11) [ ] Spawns become ghosts on death. Retain their shrapnel if they were not
       actively detonated.
+  12) [ ] Add difficulty levels.
+  13) [ ] Drop CARDS (from bosses and rare spawns) instead of items.
+  14) [ ] Make movement feel better.
+  15) [ ] Have powerful card combinations (eg, saber/homing, minigun/mega).
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -122,10 +135,6 @@ Todo
      predictability should be inherent, otherwise it just feels like a nonstop,
      random, but predictable mess.
 
-* TWEAKS
-  1) [X] Make SABER repel distance greater and increase stun time.
-  2) [X] Improve GRENADE lob animation.
-
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
@@ -134,6 +143,9 @@ Todo
   The Spark Buddy is akin to a lively, emotive dog companion.
   1) [ ] Detonation chain limit [?]
   2) [ ] How should the spark behave in reaction to nearby enemies?
+  3) [ ] Add LASER DEFENSE SYSTEM card. When following the player, The LASER
+     DEFENSE SYSTEM focuses a laser beam on the nearest enemy that rapidly deals
+     damage over time (DoT).
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
@@ -180,6 +192,30 @@ Todo
       animation and effect occurs where the unit is revived.
   14) [ ] Add HYDRA spawn type. This is a unit that immediately splits into two
       upon death. The HYDRA can split twice before dying permanently.
+  15) [ ] Add COBRA spawn type. The COBRA inflicts a poison debuff.
+  16) [ ] Add PHASER spawn type. The PHASER switches between the ETHEREAL and
+      corporeal planes. In the ETHEREAL plane, the PHASER cannot be damaged.
+  17) [ ] Spawns should be created outside the arena.
+  18) [ ] Spawn entire mobs with unique composition in addition to individual
+      units.
+  19) [ ] Add CHIEFTAIN spawn type. The CHIEFTAIN has the INVULNERABLE AURA.
+      Nearby units will be immune to damage.
+  20) [ ] Add BERSERKER spawn type. The BERSERKER has the FRENZY AURA. FRENZIED
+      units will move and attack faster.
+  21) [ ] Add GOLEM spawn type. The GOLEM has the RESILIENT aura. RESILIENT units
+      have much higher defense and don't suffer as much from debuffs.
+  22) [ ] Add OGRE spawn type. The OGRE is tanky, deals high attack, moves
+      moderately-fast, and has moderately-high attack range. Its attack can
+      damage its own allies.
+  23) [ ] Add TRACER spawn type. TRACERS are small flying units that swarm
+      strategically toward the enemy. They almost always spawn in a mob. TRACERS
+      can die from shrapnel contact alone.
+  24) [ ] Add SHAMAN spawn type. The SHAMAN resurrects nearby dead units
+      (excluding boss-level spawns).
+  25) [ ] Add RAVAGER spawn type. The RAVAGER has a RAGE virus buff. Units who
+      come in contact with a RAGED unit become ENRAGED themselves. ENRAGED units
+      move faster, move erratically, take damage over time, and explode on
+      death - dealing damage to the player.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
@@ -246,6 +282,10 @@ Todo
       a super machine gun. Its main drawback is that the player is completely
       stationary while equipped with this weapon.
   23) [ ] Play a sound when melee weapon charge is ready.
+** Grenade
+   1) [ ] Change RED SHRAPNEL type so that it has the property of not sticking
+      to spawns. It has the ability to detonate while floating in space.
+   2) [ ] Reduce SHRAPNEL count.
 
 * DETONATORS
 
@@ -267,6 +307,7 @@ Todo
   6) [ ] Add ECHO powerup. This powerup causes a delayed "echo" of your weapon
      whenever fired. For example, if you fire a shotgun, a 100ms later, another
      shotgun blast will fire on its own as in an "echo."
+  7) [ ] Add CLARITY powerup. CLARITY reduces cooldown on secondary abilities.
 
 * ENVIRONMENT
   1) [ ] Add TNT environment object. This is a stationary object that looks like
