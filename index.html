@@ -1655,22 +1655,32 @@ function update(dt) {
       spark.settled = false;
     }
 
-    // Follow position: trail behind & to the side of player movement
+    // Check if any enemies are reasonably close
+    let enemiesNearby = false;
+    for (let e of enemies) {
+      if (e.hp <= 0) continue;
+      if (dist(player, e) < 400) { enemiesNearby = true; break; }
+    }
+
     let followDist = spark.sideOffset;
     let followAngle = spark.sideAngle;
-    if (pSpeed > 20) {
-      // Trot alongside — offset to the side and behind movement direction
-      const moveAngle = Math.atan2(pvy, pvx);
-      const targetSide = moveAngle + Math.PI * 0.75; // behind and to the side
-      // Smoothly rotate sideAngle toward target
-      let diff = targetSide - spark.sideAngle;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      spark.sideAngle += diff * 3 * dt;
-      followAngle = spark.sideAngle;
+    if (enemiesNearby) {
+      // Follow position: trail behind & to the side of player movement
+      if (pSpeed > 20) {
+        const moveAngle = Math.atan2(pvy, pvx);
+        const targetSide = moveAngle + Math.PI * 0.75;
+        let diff = targetSide - spark.sideAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        spark.sideAngle += diff * 3 * dt;
+        followAngle = spark.sideAngle;
+      } else {
+        spark.sideAngle += 0.8 * dt;
+        followAngle = spark.sideAngle;
+      }
     } else {
-      // Idle: gentle drift around player
-      spark.sideAngle += 0.8 * dt;
+      // Peaceful orbit when no enemies around
+      spark.sideAngle += 2 * dt;
       followAngle = spark.sideAngle;
     }
 
