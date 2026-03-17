@@ -220,19 +220,28 @@ let chainTrails = [];
 // ============ SPARK SIDEKICK ============
 const spark = {
   x: 0, y: 0, // world position
-  state: 'idle', // idle, detonating, returning
-  orbitAngle: 0, // current orbit angle around player
-  orbitDist: 28, // orbit radius
-  orbitSpeed: 2.5, // radians/sec
+  state: 'idle', // idle, detonating, returning, lunging
+  // Follow behavior (replaces rigid orbit)
+  targetX: 0, targetY: 0, // where spark wants to be
+  followLag: 0.08, // lerp speed (lower = laggier)
+  sideAngle: 0, // which side of player to hang on
+  sideOffset: 34, // distance from player
   // Emote state
   emote: null, // { type, t, dur }
   // Detonation travel
-  trail: null, // current chain trail reference
+  chainTrail: null,
   travelSrc: null, travelDst: null, travelT: 0, travelDur: 0,
   // Return travel
   returnT: 0, returnDur: 0, returnSx: 0, returnSy: 0,
+  // Idle settle
+  idleTime: 0, settled: false,
   // Visual
   pulseT: 0, size: 7,
+  wiggleT: 0, // kill wiggle timer
+  trail: [], // position history for persistent trail
+  trailTimer: 0,
+  // Previous player pos for velocity
+  prevPx: 0, prevPy: 0,
 };
 let score, highScore, wave, waveNum, spawnTimer, gameOver, shakeTimer, shakeIntensity;
 let combo, comboTimer, maxCombo;
@@ -546,8 +555,10 @@ function init() {
   powerups = [];
   floatingTexts = [];
   chainTrails = [];
-  spark.x = 0; spark.y = 0; spark.state = 'idle'; spark.orbitAngle = 0;
-  spark.emote = null; spark.trail = null;
+  spark.x = 0; spark.y = 0; spark.state = 'idle'; spark.sideAngle = 0;
+  spark.emote = null; spark.wiggleT = 0; spark.trail = []; spark.trailTimer = 0;
+  spark.idleTime = 0; spark.settled = false;
+  spark.prevPx = 0; spark.prevPy = 0;
   waveAnnounce = null;
   score = 0;
   wave = 1;
@@ -1510,6 +1521,7 @@ function update(dt) {
       const pts = e.score * totalMult;
       score += pts;
 
+      spark.wiggleT = 0.3; // tail wag on kill
       spawnParticles(e.x, e.y, 15, e.color, 0.6);
       if (e.type === 'boss') {
         for (let k = 0; k < 5; k++) {
@@ -1618,47 +1630,106 @@ function update(dt) {
 
   // Spark sidekick update
   spark.pulseT += dt;
+  if (spark.wiggleT > 0) spark.wiggleT -= dt;
   if (spark.emote) {
     spark.emote.t += dt;
     if (spark.emote.t >= spark.emote.dur) spark.emote = null;
   }
+
+  // Player velocity for follow behavior
+  const pvx = (player.x - spark.prevPx) / Math.max(dt, 0.001);
+  const pvy = (player.y - spark.prevPy) / Math.max(dt, 0.001);
+  const pSpeed = Math.sqrt(pvx * pvx + pvy * pvy);
+  spark.prevPx = player.x;
+  spark.prevPy = player.y;
+
   if (spark.state === 'idle') {
-    spark.orbitAngle += spark.orbitSpeed * dt;
-    // Emote bobbing affects orbit dist
-    let oDist = spark.orbitDist;
+    // Track idle time for settling
+    if (pSpeed < 10) {
+      spark.idleTime += dt;
+      if (spark.idleTime > 3) spark.settled = true;
+    } else {
+      spark.idleTime = 0;
+      spark.settled = false;
+    }
+
+    // Follow position: trail behind & to the side of player movement
+    let followDist = spark.sideOffset;
+    let followAngle = spark.sideAngle;
+    if (pSpeed > 20) {
+      // Trot alongside — offset to the side and behind movement direction
+      const moveAngle = Math.atan2(pvy, pvx);
+      const targetSide = moveAngle + Math.PI * 0.75; // behind and to the side
+      // Smoothly rotate sideAngle toward target
+      let diff = targetSide - spark.sideAngle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      spark.sideAngle += diff * 3 * dt;
+      followAngle = spark.sideAngle;
+    } else {
+      // Idle: gentle drift around player
+      spark.sideAngle += 0.8 * dt;
+      followAngle = spark.sideAngle;
+    }
+
+    // Settle down when idle for a while
+    if (spark.settled) {
+      followDist = 18; // closer
+    }
+
+    // Emote modifications
     if (spark.emote) {
       const ef = spark.emote.t / spark.emote.dur;
       if (spark.emote.type === 'excited') {
-        oDist += Math.sin(ef * Math.PI * 8) * 10;
-        spark.orbitAngle += 6 * dt; // spin faster when excited
+        followDist += Math.sin(ef * Math.PI * 8) * 12;
+        spark.sideAngle += 6 * dt;
       } else if (spark.emote.type === 'hurt') {
-        oDist += Math.sin(ef * Math.PI * 12) * 8;
+        followDist = 12; // huddle close
       }
     }
-    spark.x = player.x + Math.cos(spark.orbitAngle) * oDist;
-    spark.y = player.y + Math.sin(spark.orbitAngle) * oDist;
+
+    spark.targetX = player.x + Math.cos(followAngle) * followDist;
+    spark.targetY = player.y + Math.sin(followAngle) * followDist;
+
+
+
+    // Smooth follow with lag
+    const lagSpeed = spark.settled ? 2 : 8;
+    spark.x += (spark.targetX - spark.x) * lagSpeed * dt;
+    spark.y += (spark.targetY - spark.y) * lagSpeed * dt;
+
   } else if (spark.state === 'detonating') {
-    // Position driven by trail.spark in render
-    if (spark.trail && spark.trail.spark) {
-      const s = spark.trail.spark;
+    if (spark.chainTrail && spark.chainTrail.spark) {
+      const s = spark.chainTrail.spark;
       const frac = Math.min(s.t / s.dur, 1);
       spark.x = s.sx + (s.tx - s.sx) * frac;
       spark.y = s.sy + (s.ty - s.sy) * frac;
     }
+
   } else if (spark.state === 'returning') {
     spark.returnT += dt;
-    spark.orbitAngle += spark.orbitSpeed * dt;
     const frac = Math.min(spark.returnT / spark.returnDur, 1);
-    // Ease out
     const ef = 1 - (1 - frac) * (1 - frac);
-    // Target the current orbit position, not player center
-    const orbitX = player.x + Math.cos(spark.orbitAngle) * spark.orbitDist;
-    const orbitY = player.y + Math.sin(spark.orbitAngle) * spark.orbitDist;
-    spark.x = spark.returnSx + (orbitX - spark.returnSx) * ef;
-    spark.y = spark.returnSy + (orbitY - spark.returnSy) * ef;
+    const targetX = player.x + Math.cos(spark.sideAngle) * spark.sideOffset;
+    const targetY = player.y + Math.sin(spark.sideAngle) * spark.sideOffset;
+    spark.x = spark.returnSx + (targetX - spark.returnSx) * ef;
+    spark.y = spark.returnSy + (targetY - spark.returnSy) * ef;
     if (frac >= 1) {
       spark.state = 'idle';
+      spark.idleTime = 0;
     }
+  }
+
+  // Spark persistent trail
+  spark.trailTimer += dt;
+  if (spark.trailTimer > 0.02) {
+    spark.trailTimer = 0;
+    spark.trail.push({ x: spark.x, y: spark.y, t: 0 });
+    if (spark.trail.length > 40) spark.trail.shift();
+  }
+  for (let i = spark.trail.length - 1; i >= 0; i--) {
+    spark.trail[i].t += dt;
+    if (spark.trail[i].t > 0.5) { spark.trail.splice(i, 1); }
   }
 
   // Wave announcement
@@ -1690,18 +1761,24 @@ function update(dt) {
 // ============ SPARK HELPERS ============
 function sparkReturn() {
   if (spark.state !== 'detonating') return;
+  // Check chain length for victory spin
+  const chainLen = spark.chainTrail ? spark.chainTrail.points.length - 1 : 0;
   spark.state = 'returning';
   spark.returnSx = spark.x;
   spark.returnSy = spark.y;
   spark.returnT = 0;
   const d = dist(spark, player);
   spark.returnDur = Math.max(0.4, d / 600);
-  spark.trail = null;
+  spark.chainTrail = null;
+  if (chainLen >= 3) {
+    sparkEmote('victory', 1.8);
+  }
 }
 
 function sparkEmote(type, dur) {
   spark.emote = { type, t: 0, dur: dur || 1 };
 }
+
 
 // ============ DETONATION ============
 function triggerDetonation() {
@@ -1737,7 +1814,7 @@ function triggerDetonation() {
     chainTrails.push(trail);
     // Spark sidekick flies out from current position
     spark.state = 'detonating';
-    spark.trail = trail;
+    spark.chainTrail = trail;
     const target = firstWave[0];
     const d = dist(spark, target);
     const travelTime = d / CHAIN_SPARK_SPEED;
@@ -1749,7 +1826,7 @@ function triggerDetonation() {
     const trail = { points: [{ x: spark.x, y: spark.y, birth: performance.now() }], spark: null, fadeT: 0, fading: false };
     chainTrails.push(trail);
     spark.state = 'detonating';
-    spark.trail = trail;
+    spark.chainTrail = trail;
     const d = dist(spark, clickPt);
     const travelTime = d / CHAIN_SPARK_SPEED;
     trail.spark = { sx: spark.x, sy: spark.y, tx: clickWorldX, ty: clickWorldY, t: 0, dur: travelTime };
@@ -2718,7 +2795,7 @@ function drawHUD(now) {
       }
     }
     // Trailing line from last point to spark sidekick (if this is the active trail)
-    if (spark.state === 'detonating' && spark.trail === tr && tr.points.length > 0) {
+    if (spark.state === 'detonating' && spark.chainTrail === tr && tr.points.length > 0) {
       const last = tr.points[tr.points.length - 1];
       const screenX = W / 2 + (spark.x - player.x);
       const screenY = H / 2 - (spark.y - player.y);
@@ -2727,6 +2804,23 @@ function drawHUD(now) {
       ctx.beginPath();
       ctx.moveTo(W / 2 + (last.x - player.x), H / 2 - (last.y - player.y));
       ctx.lineTo(screenX, screenY);
+      ctx.stroke();
+    }
+  }
+
+  // Spark persistent trail
+  if (!gameOver && !startScreen && spark.trail.length > 1) {
+    for (let i = 1; i < spark.trail.length; i++) {
+      const p0 = spark.trail[i - 1];
+      const p1 = spark.trail[i];
+      const life = 1 - p1.t / 0.5;
+      const alpha = life * 0.7;
+      if (alpha <= 0) continue;
+      ctx.strokeStyle = `rgba(255, 50, 30, ${alpha})`;
+      ctx.lineWidth = 5 * life;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + (p0.x - player.x), H / 2 - (p0.y - player.y));
+      ctx.lineTo(W / 2 + (p1.x - player.x), H / 2 - (p1.y - player.y));
       ctx.stroke();
     }
   }
@@ -2749,11 +2843,31 @@ function drawHUD(now) {
 
   // Spark sidekick
   if (!gameOver && !startScreen) {
-    const sparkSX = W / 2 + (spark.x - player.x);
-    const sparkSY = H / 2 - (spark.y - player.y);
-    const pulse = 1 + 0.2 * Math.sin(spark.pulseT * 4);
+    // Wiggle offset (tail wag on kills)
+    let wiggleOffX = 0, wiggleOffY = 0;
+    if (spark.wiggleT > 0) {
+      wiggleOffX = Math.sin(spark.wiggleT * 40) * 6 * (spark.wiggleT / 0.3);
+    }
+    // Spin around player on hurt
+    if (spark.emote && spark.emote.type === 'hurt' && spark.state === 'idle') {
+      const ef = spark.emote.t / spark.emote.dur;
+      const spinAngle = spark.sideAngle + ef * Math.PI * 6; // ~3 fast spins
+      const spinDist = 20 + 8 * (1 - ef); // starts wider, tightens
+      wiggleOffX = Math.cos(spinAngle) * spinDist - (spark.x - player.x);
+      wiggleOffY = -Math.sin(spinAngle) * spinDist + (spark.y - player.y);
+    }
+    const sparkSX = W / 2 + (spark.x - player.x) + wiggleOffX;
+    const sparkSY = H / 2 - (spark.y - player.y) + wiggleOffY;
+
+    let pulseSpeed = spark.settled ? 2 : 4; // slower pulse when settled
+    const pulse = 1 + (spark.settled ? 0.1 : 0.2) * Math.sin(spark.pulseT * pulseSpeed);
     let sparkSize = spark.size * pulse;
     let sparkR = 1, sparkG = 0.15, sparkB = 0.1; // red
+
+    // Settled: dimmer, smaller
+    if (spark.settled && spark.state === 'idle') {
+      sparkSize *= 0.7;
+    }
 
     // Emote visuals
     if (spark.emote) {
@@ -2764,6 +2878,10 @@ function drawHUD(now) {
       } else if (spark.emote.type === 'hurt') {
         sparkSize *= 1 + 0.3 * Math.sin(ef * Math.PI * 12);
         sparkR = 1; sparkG = 0.1 + 0.2 * Math.sin(ef * Math.PI * 10); sparkB = 0.3;
+      } else if (spark.emote.type === 'victory') {
+        const fadeOut = 1 - ef * ef; // amplitude decays over duration
+        sparkSize *= 1 + (1 + 1.2 * Math.sin(ef * Math.PI * 10)) * fadeOut;
+        sparkR = 1; sparkG = 0.15 + 0.25 * fadeOut * Math.sin(ef * Math.PI * 8); sparkB = 0.1;
       }
     }
 
