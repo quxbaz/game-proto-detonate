@@ -34,6 +34,7 @@ Todo
   - Unique items. Firebrand. Icebrand.
   - Armor items.
   - Every weapon should be awesome and incredibly satisfying.
+  - Destroy a durable door to gain access to the next room.
 
 * DEV
   1) Iteration and feedback-cycle should be as rapid as possible.
@@ -74,6 +75,12 @@ Todo
      - Box2D / Chipmunk2D / custom physics
      - ECS (EnTT, Flecs)
      With data-oriented design (SoA), devs have reported 100k+ objects easily.
+  8) Add to Claude.md :: Optimize for organization, modification, and
+     friendliness towards AI modifications and understanding. Commit after every
+     change you make.
+  9) The Game world should work logically. You shouldn't need graphics to test
+     or run the game. Support headless testing.
+  10) Beta testing.
 
 * THEME
   - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
