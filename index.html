@@ -646,6 +646,57 @@ document.addEventListener('mousedown', e => {
 document.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+// ============ SPATIAL HASH ============
+const GRID_CELL = 100;
+const _gridMap = new Map();
+let _gridEntities = [];
+
+function rebuildEnemyGrid() {
+  _gridMap.clear();
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e.hp <= 0) continue;
+    const r = e.r || 0;
+    const minCX = Math.floor((e.x - r) / GRID_CELL);
+    const maxCX = Math.floor((e.x + r) / GRID_CELL);
+    const minCY = Math.floor((e.y - r) / GRID_CELL);
+    const maxCY = Math.floor((e.y + r) / GRID_CELL);
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cy = minCY; cy <= maxCY; cy++) {
+        const key = (cx << 16) ^ cy;
+        let cell = _gridMap.get(key);
+        if (!cell) { cell = []; _gridMap.set(key, cell); }
+        cell.push(e);
+      }
+    }
+  }
+}
+
+function queryEnemiesNear(x, y, radius) {
+  const results = [];
+  const seen = _querySet;
+  seen.clear();
+  const minCX = Math.floor((x - radius) / GRID_CELL);
+  const maxCX = Math.floor((x + radius) / GRID_CELL);
+  const minCY = Math.floor((y - radius) / GRID_CELL);
+  const maxCY = Math.floor((y + radius) / GRID_CELL);
+  for (let cx = minCX; cx <= maxCX; cx++) {
+    for (let cy = minCY; cy <= maxCY; cy++) {
+      const key = (cx << 16) ^ cy;
+      const cell = _gridMap.get(key);
+      if (!cell) continue;
+      for (let i = 0; i < cell.length; i++) {
+        const e = cell[i];
+        if (seen.has(e)) continue;
+        seen.add(e);
+        results.push(e);
+      }
+    }
+  }
+  return results;
+}
+const _querySet = new Set();
+
 // ============ HELPERS ============
 function dist(a, b) {
   const dx = a.x - b.x, dy = a.y - b.y;
@@ -796,6 +847,7 @@ function update(dt) {
   if (gameOver) return;
   if (paused) return;
   if (perkChoices) return; // Paused for perk selection
+  rebuildEnemyGrid();
 
   // Level up timer
   if (levelUpTimer > 0) {
@@ -877,7 +929,9 @@ function update(dt) {
       const cursorY = player.y - (mouse.sy - H / 2);
       let cursorTarget = null, cursorDist = Infinity;
       let nearestTarget = null, nearestDist = Infinity;
-      for (let e of enemies) {
+      const lanceTargets = queryEnemiesNear(player.x, player.y, lanceRange + 50);
+      for (let j = 0; j < lanceTargets.length; j++) {
+        const e = lanceTargets[j];
         if (e.hp <= 0) continue;
         const dp = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
         if (dp > lanceRange + e.r) continue;
@@ -893,7 +947,9 @@ function update(dt) {
     player.lanceSwingArc = lanceArc;
     player.lanceSwingRange = lanceRange;
     function lanceStrike(angle) {
-      for (let e of enemies) {
+      const lstrikeNearby = queryEnemiesNear(player.x, player.y, lanceRange + 50);
+      for (let j = 0; j < lstrikeNearby.length; j++) {
+        const e = lstrikeNearby[j];
         const dx = e.x - player.x, dy = e.y - player.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d > lanceRange + e.r) continue;
@@ -952,7 +1008,9 @@ function update(dt) {
       const cursorY = player.y - (mouse.sy - H / 2);
       let cursorTarget = null, cursorDist = Infinity;
       let nearestTarget = null, nearestDist = Infinity;
-      for (let e of enemies) {
+      const saberTargets = queryEnemiesNear(player.x, player.y, saberRange + 50);
+      for (let j = 0; j < saberTargets.length; j++) {
+        const e = saberTargets[j];
         if (e.hp <= 0) continue;
         const dp = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2);
         if (dp > saberRange + e.r) continue;
@@ -968,7 +1026,9 @@ function update(dt) {
     player.saberSwingArc = saberArc;
     player.saberSwingRange = saberRange;
     function saberStrike(angle) {
-      for (let e of enemies) {
+      const strikeNearby = queryEnemiesNear(player.x, player.y, saberRange + 50);
+      for (let j = 0; j < strikeNearby.length; j++) {
+        const e = strikeNearby[j];
         const dx = e.x - player.x, dy = e.y - player.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d > saberRange + e.r) continue;
@@ -1118,7 +1178,9 @@ function update(dt) {
       explosions.push({ x: g.x, y: g.y, r: 0, maxR: 50 * blastPerk * gMegaMult * gOverMult, t: 0, dur: 0.4, sides, rot });
       // Damage nearby enemies
       const gBlastRange = 60 * blastPerk * gMegaMult * gOverMult;
-      for (let e of enemies) {
+      const gNearby = queryEnemiesNear(g.x, g.y, gBlastRange + 50);
+      for (let j = 0; j < gNearby.length; j++) {
+        const e = gNearby[j];
         if (dist(g, e) < gBlastRange + e.r) {
           e.stuck.push({ ox: (Math.random() - 0.5) * e.r, oy: (Math.random() - 0.5) * e.r, pulseT: 0 });
         }
@@ -1146,7 +1208,9 @@ function update(dt) {
     // Homing: gently steer toward nearest enemy
     if (player.homing > 0 && !b.shrapnel) {
       let closestDist = 200, closest = null;
-      for (let e of enemies) {
+      const nearby = queryEnemiesNear(b.x, b.y, 200);
+      for (let j = 0; j < nearby.length; j++) {
+        const e = nearby[j];
         const d = dist(b, e);
         if (d < closestDist) { closestDist = d; closest = e; }
       }
@@ -1197,7 +1261,9 @@ function update(dt) {
       b.burnTimer = (b.burnTimer || 0) - dt;
       if (b.burnTimer <= 0) {
         b.burnTimer = 0.15;
-        for (let e of enemies) {
+        const burnNearby = queryEnemiesNear(b.x, b.y, b.r + 50);
+        for (let j = 0; j < burnNearby.length; j++) {
+          const e = burnNearby[j];
           if (e.hp <= 0) continue;
           if (circlesOverlap(b, b.r, e, e.r)) {
             e.hp -= b.dmg;
@@ -1226,7 +1292,9 @@ function update(dt) {
     }
     // Hit enemy
     let hit = false;
-    for (let e of enemies) {
+    const hitNearby = queryEnemiesNear(b.x, b.y, b.r + 50);
+    for (let j = 0; j < hitNearby.length; j++) {
+      const e = hitNearby[j];
       if (circlesOverlap(b, b.r, e, e.r)) {
         e.stuck.push({ ox: b.x - e.x, oy: b.y - e.y, pulseT: 0 });
         spawnParticles(b.x, b.y, 3, '#ff0', 0.2);
@@ -1234,7 +1302,9 @@ function update(dt) {
         // Ricochet: bullet bounces to a nearby enemy
         if (player.ricochet > 0 && !b.ricocheted) {
           let nextEnemy = null, nd = 250;
-          for (let other of enemies) {
+          const ricoNearby = queryEnemiesNear(b.x, b.y, 250);
+          for (let k = 0; k < ricoNearby.length; k++) {
+            const other = ricoNearby[k];
             if (other === e) continue;
             const d2 = dist(b, other);
             if (d2 < nd) { nd = d2; nextEnemy = other; }
