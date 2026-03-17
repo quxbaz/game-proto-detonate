@@ -131,7 +131,9 @@ Todo
      around the player then a few seconds later show the screen.
 
 * SPARK BUDDY
+  The Spark Buddy is akin to a lively, emotive dog companion.
   1) [ ] Detonation chain limit [?]
+  2) [ ] How should the spark behave in reaction to nearby enemies?
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
