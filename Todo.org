@@ -3,6 +3,7 @@ Todo
 * NOW
   1) [ ] AoS vs SoA test. Rendering, collision, movement.
   2) [ ] Spatial Partitioning (Uniform Grids) vs. Spatial Hashing.
+  3) [ ] Enable detonation chain limit. Add powerups and skills.
 
 * RESEARCH
 ** Spatial Hashing
@@ -129,7 +130,7 @@ Todo
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
 
-* SPARK
+* SPARK BUDDY
   1) [ ] Detonation chain limit [?]
 
 * ENVIRONMENT
