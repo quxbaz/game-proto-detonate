@@ -242,6 +242,7 @@ Todo
   22) [ ] Add TURRET weapon. The TURRET is a very fast and powerful weapon, like
       a super machine gun. Its main drawback is that the player is completely
       stationary while equipped with this weapon.
+  23) [ ] Play a sound when melee weapon charge is ready.
 
 * DETONATORS
 
