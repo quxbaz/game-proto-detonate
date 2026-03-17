@@ -235,6 +235,8 @@ const spark = {
   returnT: 0, returnDur: 0, returnSx: 0, returnSy: 0,
   // Idle settle
   idleTime: 0, settled: false,
+  // Attack stance
+  flankAngle: 0, flankDartT: 0, flankDartDir: 1,
   // Visual
   pulseT: 0, size: 7,
   wiggleT: 0, // kill wiggle timer
@@ -1688,13 +1690,28 @@ function update(dt) {
       }
     }
 
+    // Alert — enemies nearby, jump between positions
+    let alertActive = false;
+    if (!spark.emote) {
+      for (let e of enemies) {
+        if (e.hp <= 0) continue;
+        if (dist(player, e) < 180) { alertActive = true; break; }
+      }
+    }
+    if (alertActive) {
+      spark.settled = false;
+      spark.idleTime = 0;
+      const alertPhase = spark.pulseT * 5;
+      const alertIndex = Math.floor(alertPhase);
+      followAngle = spark.sideAngle + alertIndex * 2.3;
+      followDist = 38;
+    }
+
     spark.targetX = player.x + Math.cos(followAngle) * followDist;
     spark.targetY = player.y + Math.sin(followAngle) * followDist;
 
-
-
     // Smooth follow with lag
-    const lagSpeed = spark.settled ? 2 : 8;
+    const lagSpeed = spark.settled ? 2 : (alertActive ? 20 : 8);
     spark.x += (spark.targetX - spark.x) * lagSpeed * dt;
     spark.y += (spark.targetY - spark.y) * lagSpeed * dt;
 
@@ -2867,6 +2884,20 @@ function drawHUD(now) {
     // Settled: dimmer, smaller
     if (spark.settled && spark.state === 'idle') {
       sparkSize *= 0.7;
+    }
+
+    // Alert pulse (enemies nearby)
+    if (spark.state === 'idle' && !spark.emote && !spark.settled) {
+      let hasNearby = false;
+      for (let e of enemies) {
+        if (e.hp <= 0) continue;
+        if (dist(player, e) < 180) { hasNearby = true; break; }
+      }
+      if (hasNearby) {
+        const alertPhase = spark.pulseT * 5;
+        const alertPulse = Math.abs(Math.sin(alertPhase * Math.PI));
+        sparkSize *= 1 + 0.5 * alertPulse;
+      }
     }
 
     // Emote visuals
