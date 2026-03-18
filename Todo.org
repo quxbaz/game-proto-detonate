@@ -147,6 +147,7 @@ Todo
   3) [ ] Add LASER DEFENSE SYSTEM card. When following the player, The LASER
      DEFENSE SYSTEM focuses a laser beam on the nearest enemy that rapidly deals
      damage over time (DoT).
+  4) [ ] POWERUP: SPARK will occasionally detonate on its own.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
@@ -217,8 +218,10 @@ Todo
       come in contact with a RAGED unit become ENRAGED themselves. ENRAGED units
       move faster, move erratically, take damage over time, and explode on
       death - dealing damage to the player.
-  26) [ ] Add BEHOLDER spawn type. The beholder can only be attacked through a
+  26) [ ] Add BEHOLDER spawn type. The BEHOLDER can only be attacked through a
       narrow slot. The rest of the body is protected by a shell.
+  27) [ ] Add WARDEN spawn type. The WARDEN has the ability to imprison your
+      SPARK BUDDY for a brief period of time.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
