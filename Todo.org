@@ -150,6 +150,7 @@ Todo
   4) [ ] POWERUP: SPARK can occasionally detonate on its own.
   5) [ ] POWERUP: INTERCEPTOR. SPARK will knock back and stun an enemy which
      comes too close to the player.
+  6) [ ] POWERUP: RETRIEVER. The player can send the SPARK to retreive items.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
