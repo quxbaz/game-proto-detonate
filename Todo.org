@@ -91,6 +91,7 @@ Todo
   9) The Game world should work logically. You shouldn't need graphics to test
      or run the game. Support headless testing.
   10) Beta testing.
+  11) [ ] Use ECS.
 
 * THEME
   - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
