@@ -127,6 +127,8 @@ Todo
   13) [ ] Drop CARDS (from bosses and rare spawns) instead of items.
   14) [ ] Make movement feel better.
   15) [ ] Have powerful card combinations (eg, saber/homing, minigun/mega).
+  16) [ ] Maybe remove (or rework) melee weapons. They don't seem to fit into
+      the game. You could convert them into a powerup.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
