@@ -21,6 +21,16 @@ Todo
      - sandbox games
      - procedural worlds
      - ECS engines
+** Games
+   TwinCop
+   BulletRage
+   Dead Estate
+   Brigador
+   Palpus X Annihilation
+   Vampire Survivors
+   Hades
+** Misc
+   [[https://bengereng.artstation.com/projects/xgyJr][Greater Thread - Isometric Twinstick Shooter]]
 
 * NEXT
   1) [ ] The SPARK should rotate around the player during idle.
@@ -75,7 +85,7 @@ Todo
      - [ ] Collision optimization, partition method.
      - [ ] AoS [?]
   6) [ ] Refactor with supplied architecture. Core, Weapons, Spawns, Graphics,
-     Effects, etc.
+     Effects, etc. SYSTEMS: input, collision, audio, graphics, etc.
   7) AI response:
      Custom C++ engine (SDL / OpenGL / Vulkan)
      This is what most extreme-scale 2D games/sims use.
@@ -92,6 +102,12 @@ Todo
      or run the game. Support headless testing.
   10) Beta testing.
   11) [ ] Use ECS.
+  12) [ ] Deterministic game worlds based on initial conditions and inputs. The
+      test is that replays should work.
+  13) [ ] Embedded AI to generate items, weapons, world, content, etc.
+  14) [ ] Generate worlds, plan a la Dwarf Fortress.
+  15) [ ] Planets, waves, monsters, behaviors, resources, gravity, weather,
+      natural, events, light.
 
 * THEME
   - [ ] The SPARK is the player's emotive, excitable, affectionate, endearing
@@ -131,6 +147,13 @@ Todo
       the game, especially with the SPARK being such a huge factor in gameplay.
       You could convert them into a powerup.
   17) [ ] Story/main mode, survival/arcade mode.
+  18) [ ] Don't allow areas to be replayed in a run. Make choices more
+      meaningful and consequential instead of allowing grind-to-win.
+  19) [ ] Base classes. Class-specific skills and abilities.
+  20) [ ] Skill tree system.
+  21) [ ] Second skill tree for SPARK.
+  22) [ ] Skill trees use the same skill points. Trade-offs between upgrading
+      PLAYER or SPARK.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -143,6 +166,7 @@ Todo
 * PLAYER
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
+  2) [ ] Use a human sprite.
 
 * SPARK BUDDY
   The Spark Buddy is akin to a lively, emotive dog companion.
@@ -326,6 +350,10 @@ Todo
      whenever fired. For example, if you fire a shotgun, a 100ms later, another
      shotgun blast will fire on its own as in an "echo."
   7) [ ] Add CLARITY powerup. CLARITY reduces cooldown on secondary abilities.
+  8) [ ] POWERUPS should act as modifiers and not always just add flat increases
+     to weapons or attributes. E.g., +bullet should not add an extra grenade
+     (too strong). Maybe every 3 +bullet powerups should add an extra grenade.
+  9) [ ] NOVA. Releases a powerful energy wave around you.
 
 * ENVIRONMENT
   1) [ ] Add TNT environment object. This is a stationary object that looks like
@@ -364,6 +392,9 @@ Todo
   4) [ ] Reticle lags (get stuck for a brief moment) when you left or right-click.
   5) [X] You can detonate during the pause screen.
   6) [ ] Lance doesn't have a triangular hitbox.
+
+* ISSUES
+  1) [ ] How do you handle fast moving projectiles and collision?
 
 * PRODUCTION
   Platforms: Switch, Steam
