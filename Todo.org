@@ -148,6 +148,8 @@ Todo
      DEFENSE SYSTEM focuses a laser beam on the nearest enemy that rapidly deals
      damage over time (DoT).
   4) [ ] POWERUP: SPARK can occasionally detonate on its own.
+  5) [ ] POWERUP: INTERCEPTOR. SPARK will knock back an enemy which comes too
+     close to the player.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
