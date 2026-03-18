@@ -157,6 +157,8 @@ Todo
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
+  2) [ ] Stages can have different goals. Survive N duration, collect N items,
+     destroy boss, destroy N rare units, etc.
 
 * SPAWNS
   1) [X] Add SPAWNER spawn type. This particular unit is slow and tanky. It
