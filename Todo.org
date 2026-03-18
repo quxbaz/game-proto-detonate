@@ -217,6 +217,8 @@ Todo
       come in contact with a RAGED unit become ENRAGED themselves. ENRAGED units
       move faster, move erratically, take damage over time, and explode on
       death - dealing damage to the player.
+  26) [ ] Add BEHOLDER spawn type. The beholder can only be attacked through a
+      narrow slot. The rest of the body is protected by a shell.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
