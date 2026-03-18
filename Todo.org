@@ -130,6 +130,7 @@ Todo
   16) [ ] Maybe remove (or rework) melee weapons. They don't seem to fit into
       the game, especially with the SPARK being such a huge factor in gameplay.
       You could convert them into a powerup.
+  17) [ ] Story/main mode, survival/arcade mode.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
