@@ -128,7 +128,8 @@ Todo
   14) [ ] Make movement feel better.
   15) [ ] Have powerful card combinations (eg, saber/homing, minigun/mega).
   16) [ ] Maybe remove (or rework) melee weapons. They don't seem to fit into
-      the game. You could convert them into a powerup.
+      the game, especially with the SPARK being such a huge factor in gameplay.
+      You could convert them into a powerup.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -152,7 +153,7 @@ Todo
   4) [ ] POWERUP: SPARK can occasionally detonate on its own.
   5) [ ] POWERUP: INTERCEPTOR. SPARK will knock back and stun an enemy which
      comes too close to the player.
-  6) [ ] POWERUP: RETRIEVER. The player can send the SPARK to retreive items.
+  6) [ ] POWERUP: RETRIEVER. The player can send the SPARK to retrieve items.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
