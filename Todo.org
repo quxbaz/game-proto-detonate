@@ -154,6 +154,12 @@ Todo
   21) [ ] Second skill tree for SPARK.
   22) [ ] Skill trees use the same skill points. Trade-offs between upgrading
       PLAYER or SPARK.
+  23) [ ] More interplay between components. What are the variables?
+  24) [ ] Weapon properties. Piercing, crit, etc.
+** Melee weapons
+   Rework melee weapons.
+   - Your melee weapon is another slot (primary weapon, spark, melee).
+   - Melee weapons auto-attack units around you.
 
 * RHYTHM, GAME LOOP
   1) [ ] The game should have more "rhythm." Currently, it feels like just
@@ -182,6 +188,8 @@ Todo
   7) [ ] SPARK should detonate off GRENADE shrapnel (RED SHRAPNEL). Set the
      bounce interval coming off RED SHRAPNEL really low so that bounces are
      quick.
+  8) [ ] SCYTHE. SPARK becomes a whirling blade of death during chain detonations.
+  9) [ ] INCINERATE. SPARK deals burning DoT.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
@@ -324,6 +332,7 @@ Todo
       a super machine gun. Its main drawback is that the player is completely
       stationary while equipped with this weapon.
   23) [ ] Play a sound when melee weapon charge is ready.
+  24) [ ] REVOLVER. Deals very high direct damage to a single unit. Only 6 bullets.
 ** Grenade
    1) [ ] Change RED SHRAPNEL type so that it has the property of not sticking
       to spawns. It has the ability to detonate while floating in space.
@@ -354,6 +363,7 @@ Todo
      to weapons or attributes. E.g., +bullet should not add an extra grenade
      (too strong). Maybe every 3 +bullet powerups should add an extra grenade.
   9) [ ] NOVA. Releases a powerful energy wave around you.
+  10) [ ] STASIS FIELD. Slows down nearby enemies.
 
 * ENVIRONMENT
   1) [ ] Add TNT environment object. This is a stationary object that looks like
@@ -371,6 +381,10 @@ Todo
   7) [ ] Add MAGNETIC skill. This skill attract items to you. More points
      increase the attraction radius, diminishing exponentially.
   8) [ ] Add THORNS skill. Enemies take a lot of damage when they attack you.
+  9) [ ] REACTIVE ARMOR. Creates directional explosion on taking damage over threshold.
+  10) [ ] HEAVY ARMOR. Good protection, but slows movement.
+  11) [ ] CERAMIC ARMOR. Protects well, but breaks on hit.
+  12) [ ] TIMED CHARGES. Shrapnel automatically detonates after elapsed time.
 
 * VISUALS
   1) [X] Make weapon items distinct from powerups.
