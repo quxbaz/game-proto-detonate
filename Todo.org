@@ -190,6 +190,7 @@ Todo
      quick.
   8) [ ] SCYTHE. SPARK becomes a whirling blade of death during chain detonations.
   9) [ ] INCINERATE. SPARK deals burning DoT.
+  10) [ ] ELECTRIFY. SPARK paralyses a nearby enemy.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
