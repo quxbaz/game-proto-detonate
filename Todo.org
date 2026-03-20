@@ -177,6 +177,8 @@ Todo
   2) [ ] Use a human sprite.
 
 * ABILITIES (activate on middle-click)
+  ABILITIES are cards. They are permanent for the duration of the area until
+  another ability takes its palce.
   1) [ ] ROCKET BOOTS. Boost into the air at the target area. Deal small
      concussive damage (stun) and push on landing.
   2) [ ] REPEL. Push back enemies and stun them for a brief duration.
@@ -279,6 +281,12 @@ Todo
       narrow slot. The rest of the body is protected by a shell.
   27) [ ] Add WARDEN spawn type. The WARDEN has the ability to imprison your
       SPARK BUDDY for a brief period of time.
+  28) [ ] BREAKER. Destroys the player's weapon.
+  29) [ ] SILENCER. Disables the player's ability.
+  30) [ ] THIEF. Steals a card from the player and plays it.
+  31) [ ] THIEF TYPE-A. Steals the player's weapon and uses it.
+  32) [ ] ANTI-SPARK: An enemy SPARK unit.
+  33) [ ] MEDIC: Cures shrapnel from allies.
 * CHASER
   1) Add a trail behind it to signify speed.
 
