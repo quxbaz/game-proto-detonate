@@ -287,6 +287,7 @@ Todo
   31) [ ] THIEF TYPE-A. Steals the player's weapon and uses it.
   32) [ ] ANTI-SPARK: An enemy SPARK unit.
   33) [ ] MEDIC: Cures shrapnel from allies.
+  34) [ ] MEDIC: Heals debuffs from allies.
 * CHASER
   1) Add a trail behind it to signify speed.
 
