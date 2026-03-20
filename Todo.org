@@ -158,6 +158,9 @@ Todo
   24) [ ] Weapon properties. Piercing, crit, etc.
   25) [ ] Weapons on their own should be fairly ineffective. Their power should
       depend on effective combinations.
+  26) [ ] Make the entire game slower. Weapons weaker, player slower, enemies
+      slower, areas bigger, enemies tankier. This introduces more gameplay
+      variables and styles. For example enemy healers can become a force.
 ** Melee weapons
    Rework melee weapons.
    - Your melee weapon is another slot (primary weapon, spark, melee).
@@ -288,8 +291,8 @@ Todo
   32) [ ] ANTI-SPARK: An enemy SPARK unit.
   33) [ ] MEDIC: Cures shrapnel from allies.
   34) [ ] MEDIC: Heals debuffs from allies.
-* CHASER
-  1) Add a trail behind it to signify speed.
+** CHASER
+   1) Add a trail behind it to signify speed.
 
 * WEAPONS
   Every weapon should have unique advantages. No weapon should be better than
