@@ -180,6 +180,8 @@ Todo
   1) [ ] ROCKET BOOTS. Boost into the air at the target area. Deal small
      concussive damage (stun) and push on landing.
   2) [ ] REPEL. Push back enemies and stun them for a brief duration.
+  3) [ ] OVERCHARGE. Greatly increase firing-rate but a very brief duration.
+     Disable attack briefly afterwards.
 
 * SPARK BUDDY
   The Spark Buddy is akin to a lively, emotive dog companion.
