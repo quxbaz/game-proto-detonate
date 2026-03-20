@@ -277,6 +277,8 @@ Todo
   1) Add a trail behind it to signify speed.
 
 * WEAPONS
+  Every weapon should have unique advantages. No weapon should be better than
+  any other across-the-board.
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
      used to purchase weapons. Weapons can be purchased or switched on the LEVEL
      UP menu.
