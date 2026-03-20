@@ -196,6 +196,9 @@ Todo
   1) [ ] Rooms, environments, keys [?]
   2) [ ] Stages can have different goals. Survive N duration, collect N items,
      destroy boss, destroy N rare units, etc.
+  3) [ ] Make the environment look nicer. Put a lot of thought of the appearance
+     of the environment. Do you want it to be light, dark? Gritty, refreshing?
+     It greatly affects the mood of the game.
 
 * SPAWNS
   1) [X] Add SPAWNER spawn type. This particular unit is slow and tanky. It
