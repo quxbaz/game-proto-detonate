@@ -344,10 +344,12 @@ Todo
       stationary while equipped with this weapon.
   23) [ ] Play a sound when melee weapon charge is ready.
   24) [ ] REVOLVER. Deals very high direct damage to a single unit. Only 6 bullets.
-** Grenade
+** GRENADE
    1) [ ] Change RED SHRAPNEL type so that it has the property of not sticking
       to spawns. It has the ability to detonate while floating in space.
    2) [ ] Reduce SHRAPNEL count.
+** LANCE
+   1) [ ] Special ability should deal no damage. Protects the player. Slows enemies.
 
 * DETONATORS
 
