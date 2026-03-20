@@ -273,6 +273,8 @@ Todo
       narrow slot. The rest of the body is protected by a shell.
   27) [ ] Add WARDEN spawn type. The WARDEN has the ability to imprison your
       SPARK BUDDY for a brief period of time.
+* CHASER
+  1) Add a trail behind it to signify speed.
 
 * WEAPONS
   1) [X] Add currency and weapon system. Enemies give gold on kill. Gold can be
