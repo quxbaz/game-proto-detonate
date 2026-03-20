@@ -173,6 +173,7 @@ Todo
   1) [X] Level up window is abrupt. Show a level up visual like a golden glow
      around the player then a few seconds later show the screen.
   2) [ ] Use a human sprite.
+  3) [ ] Add jumping (middle-click).
 
 * SPARK BUDDY
   The Spark Buddy is akin to a lively, emotive dog companion.
