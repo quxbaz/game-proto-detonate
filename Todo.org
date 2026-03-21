@@ -182,7 +182,7 @@ Todo
 
 * ABILITIES (activate on middle-click)
   ABILITIES are cards. They are permanent for the duration of the area until
-  another ability takes its palce.
+  another ability takes its place.
   1) [ ] ROCKET BOOTS. Boost into the air at the target area. Deal small
      concussive damage (stun) and push on landing.
   2) [ ] REPEL. Push back enemies and stun them for a brief duration.
