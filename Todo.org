@@ -55,6 +55,7 @@ Todo
   - Cards are categorized by type: weapon, powerup, armor, spark-related, land, etc.
   - Progression involves collecting powerful enough cards to allow you to
     progress onto the next stage/area/levle.
+  - Encourage card use (restore mana pool each period). Discourage hoarding.
 
 * DEV
   1) Iteration and feedback-cycle should be as rapid as possible.
