@@ -29,6 +29,9 @@ Todo
    Palpus X Annihilation
    Vampire Survivors
    Hades
+   Slay the Spire
+   Dicey Dungeon
+   Slice and Dice
 ** Misc
    [[https://bengereng.artstation.com/projects/xgyJr][Greater Thread - Isometric Twinstick Shooter]]
 
@@ -162,6 +165,8 @@ Todo
   26) [ ] Make the entire game slower. Weapons weaker, player slower, enemies
       slower, areas bigger, enemies tankier. This introduces more gameplay
       variables and styles. For example enemy healers can become a force.
+  27) [ ] Traditional TCG card effects. Redraw, duplicate, etc.
+  28) [ ] Choose starting perks (use up to 3). Collect perks during or after game.
 ** Melee weapons
    Rework melee weapons.
    - Your melee weapon is another slot (primary weapon, spark, melee).
