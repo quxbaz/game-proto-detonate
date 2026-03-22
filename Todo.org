@@ -167,6 +167,9 @@ Todo
       variables and styles. For example enemy healers can become a force.
   27) [ ] Traditional TCG card effects. Redraw, duplicate, etc.
   28) [ ] Choose starting perks (use up to 3). Collect perks during or after game.
+  29) [ ] MALAISE. EFFECT CARD. Slows targeted unit. Movement, attack, spawn rate.
+  30) [ ] EFFECT CARDS. Effect cards take immediate effect. E.g., heal, meteor
+      (target the area in paused mode), malaise, freeze (target in area), etc.
 ** Melee weapons
    Rework melee weapons.
    - Your melee weapon is another slot (primary weapon, spark, melee).
