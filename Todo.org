@@ -32,6 +32,7 @@ Todo
    Slay the Spire
    Dicey Dungeon
    Slice and Dice
+   Nuclear Throne
 ** Misc
    [[https://bengereng.artstation.com/projects/xgyJr][Greater Thread - Isometric Twinstick Shooter]]
 
@@ -170,6 +171,14 @@ Todo
   29) [ ] MALAISE. EFFECT CARD. Slows targeted unit. Movement, attack, spawn rate.
   30) [ ] EFFECT CARDS. Effect cards take immediate effect. E.g., heal, meteor
       (target the area in paused mode), malaise, freeze (target in area), etc.
+  31) [ ] Mana spawns around the map.
+  32) [ ] Different mana types. Blue, Red, Green. Blue is normal mana. Most
+      cards require Blue. Red is destructive mana. Usually required by powerful
+      weapons. Green is special mana. Usually required for weirder cards.
+  33) [ ] Mana types spawn in different conditions. Blue spawns around the map
+      and also at an inteval. Red is acquired by sacrificing or destroying
+      special enemies. Green is acquired by completing mini-quests.
+  34) [ ] Plus Detonates card.
 ** Melee weapons
    Rework melee weapons.
    - Your melee weapon is another slot (primary weapon, spark, melee).
@@ -214,6 +223,7 @@ Todo
   8) [ ] SCYTHE. SPARK becomes a whirling blade of death during chain detonations.
   9) [ ] INCINERATE. SPARK deals burning DoT.
   10) [ ] ELECTRIFY. SPARK paralyses a nearby enemy.
+  11) [ ] MANUAL MODE. Manually target a chain of enemies.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
