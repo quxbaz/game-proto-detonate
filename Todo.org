@@ -224,6 +224,8 @@ Todo
   9) [ ] INCINERATE. SPARK deals burning DoT.
   10) [ ] ELECTRIFY. SPARK paralyses a nearby enemy.
   11) [ ] MANUAL MODE. Manually target a chain of enemies.
+  12) [ ] PERIODIC DETONATION: Periodically the spark will jump to a nearby
+      enemy, pause for a second and detonate.
 
 * ENVIRONMENT
   1) [ ] Rooms, environments, keys [?]
@@ -310,6 +312,8 @@ Todo
   32) [ ] ANTI-SPARK: An enemy SPARK unit.
   33) [ ] MEDIC: Cures shrapnel from allies.
   34) [ ] MEDIC: Heals debuffs from allies.
+  35) [ ] LATCH: When targeted by the SPARK, holds onto the spark for a brief
+      period, preventing it from doing anything.
 ** CHASER
    1) Add a trail behind it to signify speed.
 
