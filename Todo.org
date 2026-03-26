@@ -176,7 +176,7 @@ Todo
       cards require Blue. Red is destructive mana. Usually required by powerful
       weapons. Green is special mana. Usually required for weirder cards.
   33) [ ] Mana types spawn in different conditions. Blue spawns around the map
-      and also at an inteval. Red is acquired by sacrificing or destroying
+      and also at an interval. Red is acquired by sacrificing or destroying
       special enemies. Green is acquired by completing mini-quests.
   34) [ ] Plus Detonates card.
 ** Melee weapons
@@ -385,6 +385,8 @@ Todo
       stationary while equipped with this weapon.
   23) [ ] Play a sound when melee weapon charge is ready.
   24) [ ] REVOLVER. Deals very high direct damage to a single unit. Only 6 bullets.
+  25) [ ] SWEEPER. Like a laser that revolves clockwise around the entire
+      screen. Good at destroying weaker enemies.
 ** GRENADE
    1) [ ] Change RED SHRAPNEL type so that it has the property of not sticking
       to spawns. It has the ability to detonate while floating in space.
