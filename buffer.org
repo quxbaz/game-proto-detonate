@@ -1,0 +1,31 @@
+Buffer
+
+- Alter systems
+- Ghost unit, bullets pass through. Lure it to an obstacle.
+- Absorber. Takes detonation damage but absorbs the detonation.
+- Play with systems, not just incremental upgrades
+- Jump ability
+- Detonator restores on timer instead of spawning randomly
+- Counterstrike, melee strike back
+- Inverse detonator; detonator makes unit vulnerable to bullets. Minor
+  explosions when shooting the unit
+- Gravity detonations
+- Teleport
+- Gravity pull + jump
+- Magnetic push (jump and push combo)
+- Delayed explosion
+- Burst periods
+- Exponential growth
+- Counter agent. Enemy unit with similar abilities
+- Ravager
+- Unit that becomes more valuable over time. Delay killing it for as long as
+  possible. High damage. Risk rewards, instant vs delayed gratification
+- Direct damage weapons . Weapon switch.
+- Some enemies can only be damaged by direct damage
+- Replay explosion
+- Gain more power when enemies are close
+- Charge abilities. Slows down immensely, but grants some kind of power or
+  resource
+- Different charge abilities. example, xp charge, detonator restore charge.
+  Sockets on charge ability
+- Item or card sockets?
