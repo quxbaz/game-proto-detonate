@@ -29,3 +29,7 @@ Buffer
 - Different charge abilities. example, xp charge, detonator restore charge.
   Sockets on charge ability
 - Item or card sockets?
+- Reticle inertia: with some weapons the reticle is slower to "catch up" to the
+  cursor. This could be affected by powerups and skills.
+- Alter systems; model systems instead that create outputs instead of
+  instantiating outputs without working systems behind them.
