@@ -33,3 +33,5 @@ Buffer
   cursor. This could be affected by powerups and skills.
 - Alter systems; model systems instead that create outputs instead of
   instantiating outputs without working systems behind them.
+- Aim recoil property: reduced accuracy after shots. Affected by skills,
+  weapons, and powerups.
