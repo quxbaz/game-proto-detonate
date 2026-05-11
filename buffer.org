@@ -35,3 +35,8 @@ Buffer
   instantiating outputs without working systems behind them.
 - Aim recoil property: reduced accuracy after shots. Affected by skills,
   weapons, and powerups.
+- Shrines. Effect when in range of a shrine.
+- Shrines type b: Affects bullets when bullets pass through the shrine.
+- Enemy countermeasures
+- Enemy decoys; e.g., distract homing/heat-seeking bullets.
+- Enemy shrapnel; absorb bullets and explosions.
